@@ -1,0 +1,45 @@
+# ============================
+#   Visual Studio Core
+# ============================
+.vs/
+*.db
+*.opendb
+*.VC.db
+
+# ============================
+#   Build Artifacts
+# ============================
+Debug/
+Release/
+x64/
+x86/
+ipch/
+*.obj
+*.pch
+*.idb
+*.pdb
+*.ilk
+*.exe
+*.dll
+*.lib
+*.manifest
+
+# ============================
+#   Project User Settings
+# ============================
+*.user
+*.suo
+
+# ============================
+#   Backup / Temp Files
+# ============================
+*.cache
+*.log
+*.tmp
+
+# ============================
+#   자동 생성 폴더 (필요 없음)
+# ============================
+Solar_system/Debug/
+Solar_system/Release/
+Solar_system/ipch/
