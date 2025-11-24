@@ -271,7 +271,7 @@ void menu() {
     std::cout << "p: 직각투영 / 원근투영" << std::endl;
     std::cout << "m: 솔리드 / 와이어" << std::endl;
     std::cout << "w/a/s/d: 상하좌우 이동" << std::endl;
-    std::cout << "+/-: 카메라 z축 이동" << std::endl;
+    std::cout << "+/-: 카메라 줌인/줌아웃" << std::endl;
 	std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
     std::cout << "q: 종료" << std::endl;
 }
