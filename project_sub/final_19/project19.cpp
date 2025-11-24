@@ -540,18 +540,14 @@ GLvoid drawScene() {
     glBindVertexArray(axis.VAO);
     glDrawElements(GL_LINES, axis.index.size(), GL_UNSIGNED_INT, 0);
 
-    // 궤도 그리기 (셰이더 사용)
-    for (int i = 0; i < 3; i++) {
-        glm::mat4 orbitMatrix = projection * view * baseRotation * movemat * zmat * scalemat * smat[i];
+    // 궤도 그리기
+    for (int i = 0; i < PLANET_COUNT; i++) {
+        glm::mat4 orbitMatrix = projection * view * baseRotation;
         glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(orbitMatrix));
         glBindVertexArray(orbits[i].VAO);
         glDrawElements(GL_LINE_LOOP, orbits[i].index.size(), GL_UNSIGNED_INT, 0);
-
-        glm::mat4 s_orbitMatrix = projection * view * baseRotation * movemat * zmat * scalemat * smat[i] * Matrix[i];
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(s_orbitMatrix));
-        glBindVertexArray(s_orbits[i].VAO);
-        glDrawElements(GL_LINE_LOOP, s_orbits[i].index.size(), GL_UNSIGNED_INT, 0);
     }
+
 
     // GLU 객체들 렌더링 (18.cpp와 동일한 방식)
     glUseProgram(0);
@@ -576,16 +572,14 @@ GLvoid drawScene() {
     // 스타일 설정
     if (solid) {
         if (centerSphere.obj) gluQuadricDrawStyle(centerSphere.obj, GLU_FILL);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < PLANET_COUNT; i++) {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_FILL);
-            if (moonSpheres[i].obj) gluQuadricDrawStyle(moonSpheres[i].obj, GLU_FILL);
         }
     }
     else {
         if (centerSphere.obj) gluQuadricDrawStyle(centerSphere.obj, GLU_LINE);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < PLANET_COUNT; i++) {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_LINE);
-            if (moonSpheres[i].obj) gluQuadricDrawStyle(moonSpheres[i].obj, GLU_LINE);
         }
     }
 
@@ -598,17 +592,13 @@ GLvoid drawScene() {
 
     // 행성들 렌더링 - 초록색
     glColor3f(0.0f, 1.0f, 0.0f);
-    for (int i = 0; i < 3; i++) {
-        glPushMatrix();
-        glMultMatrixf(glm::value_ptr(movemat * zmat * scalemat * smat[i] * Matrix[i]));
-        if (planetSpheres[i].obj) gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 10, 10);
-        glPopMatrix();
+    for (int i = 0; i < PLANET_COUNT; i++) {
 
-        // 달들 렌더링 - 파란색
-        glColor3f(0.0f, 0.0f, 1.0f);
+        float r = gPlanets[i].orbitRadius;
+
         glPushMatrix();
-        glMultMatrixf(glm::value_ptr(movemat * zmat * scalemat * smat[i] * Matrix[i] * s_Matrix[i]));
-        if (moonSpheres[i].obj) gluSphere(moonSpheres[i].obj, moonSpheres[i].size, 10, 10);
+        glTranslatef(r, 0.0f, 0.0f);  // 행성을 각 궤도 반지름 만큼 X축에 배치
+        gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 20, 20);
         glPopMatrix();
     }
 
