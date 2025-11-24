@@ -245,6 +245,10 @@ GLvoid initBuffer(Shape& shape) {
     }
 }
 
+void initPlanets() {
+
+}
+
 //--- 메인 함수
 void main(int argc, char** argv) {
     width = 500;
@@ -268,20 +272,7 @@ void main(int argc, char** argv) {
     menu();
     CreateMatrix();
 
-    // 궤도 생성 및 버퍼 초기화
-    for (int i = 0; i < 3; i++) {
-        orbits[i].createOrbit(0.5f, 100);
-        initBuffer(orbits[i]);
-        s_orbits[i].createOrbit(0.2f, 100);
-        initBuffer(s_orbits[i]);
-    }
-
-    // 구체들 생성
-    centerSphere.createSphere(0.2f);
-    for (int i = 0; i < 3; i++) {
-        planetSpheres[i].createSphere(0.05f);
-        moonSpheres[i].createSphere(0.02f);
-    }
+    initPlanets();
 
     glutTimerFunc(16, TimerFunction, 0);
     glutDisplayFunc(drawScene);
