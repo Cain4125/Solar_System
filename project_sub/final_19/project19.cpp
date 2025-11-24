@@ -190,6 +190,7 @@ void startOriginPassAnimation();
 void startUpDownAnimation();
 GLvoid initBuffer(Shape& shape);
 void createAxis(Shape& shape);
+void initPlanets();
 
 char* filetobuf(const char* file) {
     FILE* fptr;
