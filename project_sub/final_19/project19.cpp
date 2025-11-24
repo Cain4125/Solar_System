@@ -157,6 +157,7 @@ glm::mat4 big_Matrix;
 glm::mat4 scalemat(1.0f);
 glm::mat4 zmat(1.0f);
 glm::mat4 movemat(1.0f);
+glm::mat4 gPlanetMatrix[PLANET_COUNT];
 
 bool solid = true, angle = false, z_rotate = false;
 bool isGlobalAnimating = false;
@@ -257,6 +258,8 @@ void initPlanets() {
 
         // 구체 생성
         planetSpheres[i].createSphere(gPlanets[i].displayRadius);
+        // 공전 행렬 배열
+        gPlanetMatrix[i] = glm::mat4(1.0f);
     }
 }
 
@@ -598,8 +601,14 @@ GLvoid drawScene() {
         float r = gPlanets[i].orbitRadius;
 
         glPushMatrix();
-        glTranslatef(r, 0.0f, 0.0f);  // 행성을 각 궤도 반지름 만큼 X축에 배치
-        gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 20, 20);
+
+        // 공전 행렬 적용
+        glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
+		// 궤도 반지름 만큼 x축으로 이동
+        glTranslatef(r, 0.0f, 0.0f); 
+
+        if (planetSpheres[i].obj)
+            gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 20, 20);
         glPopMatrix();
     }
 
