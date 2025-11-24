@@ -162,6 +162,7 @@ glm::mat4 movemat(1.0f);
 glm::mat4 gPlanetMatrix[PLANET_COUNT]; // 각 행성의 공전 행렬
 float gRevolutionSpeed[PLANET_COUNT]; // 프레임당 회전각도
 float gTimeScale = 0.05f;             // 전체 시간 배속에 활용할 변수
+float gCameraZ = -3.0f;                // 카메라 z 위치
 
 
 bool solid = true, angle = false, z_rotate = false;
@@ -536,7 +537,7 @@ GLvoid drawScene() {
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 projection = glm::mat4(1.0f);
 
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+    view = glm::translate(view, glm::vec3(0.0f, 0.0f, gCameraZ));
     if (angle) {
         projection = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, -10.0f, 10.0f);
     }
@@ -580,7 +581,7 @@ GLvoid drawScene() {
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, -3.0f);
+    glTranslatef(0.0f, 0.0f, gCameraZ);
 
     // baseRotation 적용
     glMultMatrixf(glm::value_ptr(baseRotation));
@@ -598,7 +599,7 @@ GLvoid drawScene() {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_LINE);
         }
     }
-
+    
     // 중심 구 렌더링 - 빨간색
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
@@ -702,6 +703,19 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         std::cout << "프로그램 종료" << std::endl;
         exit(0);
         break;
+    case '+':    // 줌 인 (가까이)
+        gCameraZ += 0.1f;         
+        if (gCameraZ > -0.5f)
+            gCameraZ = -0.5f;      // 너무 안으로 들어가는 것 방지
+        std::cout << "줌 인, gCameraZ = " << gCameraZ << std::endl;
+        break;
+
+    case '-':    // 줌 아웃 (멀리)
+        gCameraZ -= 0.1f;         
+        if (gCameraZ < -10.0f)
+            gCameraZ = -10.0f;   
+        std::cout << "줌 아웃, gCameraZ = " << gCameraZ << std::endl;
+        break;
     case 27: // ESC key
         std::cout << "ESC 키로 프로그램 종료" << std::endl;
         exit(0);
@@ -710,6 +724,7 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         std::cout << "알 수 없는 키 입력" << std::endl;
         break;
     }
+
     glutPostRedisplay();
 }
 
