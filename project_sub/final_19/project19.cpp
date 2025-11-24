@@ -20,6 +20,31 @@ std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_real_distribution<float> dis(0.0f, 1.0f);
 
+// 행성 개수
+const int PLANET_COUNT = 8;
+
+// 행성 설정 정보
+struct PlanetConfig {
+    const char* name;
+    float displayRadius; // 화면에 그릴 반지름 (GLU 구 반지름)
+    float orbitRadius;   // 태양으로부터의 궤도 반지름
+};
+
+// 실제 비율을 압축한 값들 (지구 반지름 기준, 거리 sqrt 압축)
+PlanetConfig gPlanets[PLANET_COUNT] = {
+    { "Mercury", 0.034f, 0.375f },
+    { "Venus",   0.049f, 0.509f },
+    { "Earth",   0.050f, 0.600f },
+    { "Mars",    0.039f, 0.740f },
+    { "Jupiter", 0.130f, 1.368f },
+    { "Saturn",  0.121f, 1.849f },
+    { "Uranus",  0.087f, 2.629f },
+    { "Neptune", 0.086f, 3.286f }
+};
+
+// 태양 크기 (화면 기준)
+const float SUN_RADIUS = 0.327f;
+
 // 객체 클래스 (18.cpp 스타일로 수정)
 class Shape {
 public:
