@@ -702,30 +702,19 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 }
 
 void TimerFunction(int value) {
-    // 애니메이션 업데이트
-    updateAnimations();
 
-    // 기본 회전 (애니메이션 중이 아닐 때만)
-    if (!isGlobalAnimating) {
-        glm::mat4 a = glm::rotate(glm::mat4(1.0f), glm::radians(1.5f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 b = glm::rotate(glm::mat4(1.0f), glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 c = glm::rotate(glm::mat4(1.0f), glm::radians(0.5f), glm::vec3(0.0f, 1.0f, 0.0f));
-        Matrix[0] = a * Matrix[0];
-        Matrix[1] = b * Matrix[1];
-        Matrix[2] = c * Matrix[2];
+    // 행성 공전 적용
+    for (int i = 0; i < PLANET_COUNT; i++) {
 
-        glm::mat4 s_a = glm::rotate(glm::mat4(1.0f), glm::radians(2.5f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 s_b = glm::rotate(glm::mat4(1.0f), glm::radians(3.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 s_c = glm::rotate(glm::mat4(1.0f), glm::radians(2.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        s_Matrix[0] = s_a * s_Matrix[0];
-        s_Matrix[1] = s_b * s_Matrix[1];
-        s_Matrix[2] = s_c * s_Matrix[2];
-    }
+        // 각 행성 공전 속도 임시값(나중에 실제 비율로 변경함)
+        float speed = 0.2f + 0.04f * i;
 
-    if (z_rotate) {
-        zmat = glm::rotate(glm::mat4(1.0f), glm::radians(zangle), glm::vec3(0.0f, 0.0f, 1.0f)) * zmat;
+        gPlanetMatrix[i] =
+            glm::rotate(glm::mat4(1.0f),
+                        glm::radians(speed),
+                        glm::vec3(0.0f, 1.0f, 0.0f)) * gPlanetMatrix[i];
     }
 
     glutPostRedisplay();
-    glutTimerFunc(50, TimerFunction, 1);
+    glutTimerFunc(16, TimerFunction, 0);
 }
