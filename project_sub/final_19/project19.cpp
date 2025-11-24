@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS //--- ÇÁ·Î±×·¥ ¸Ç ¾Õ¿¡ ¼±¾ğÇÒ °Í
+ï»¿#define _CRT_SECURE_NO_WARNINGS //--- í”„ë¡œê·¸ë¨ ë§¨ ì•ì— ì„ ì–¸í•  ê²ƒ
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -8,7 +8,7 @@
 
 #define M_PI 3.14159265358979323846
 
-//--- ÇÊ¿äÇÑ Çì´õÆÄÀÏ include
+//--- í•„ìš”í•œ í—¤ë”íŒŒì¼ include
 #include <gl/glew.h>
 #include <gl/freeglut.h>
 #include <gl/freeglut_ext.h>
@@ -20,17 +20,17 @@ std::random_device rd;
 std::mt19937 gen(rd());
 std::uniform_real_distribution<float> dis(0.0f, 1.0f);
 
-// Çà¼º °³¼ö
+// í–‰ì„± ê°œìˆ˜
 const int PLANET_COUNT = 8;
 
-// Çà¼º ¼³Á¤ Á¤º¸
+// í–‰ì„± ì„¤ì • ì •ë³´
 struct PlanetConfig {
     const char* name;
-    float displayRadius; // È­¸é¿¡ ±×¸± ¹İÁö¸§ (GLU ±¸ ¹İÁö¸§)
-    float orbitRadius;   // ÅÂ¾çÀ¸·ÎºÎÅÍÀÇ ±Ëµµ ¹İÁö¸§
+    float displayRadius; // êµ¬ ë°˜ì§€ë¦„. ì§€êµ¬ ë°˜ì§€ë¦„ 0.05f ê¸°ì¤€ displayRadius = 0.05 * (realRatio ^ 0.4)
+    float orbitRadius;   // ê¶¤ë„ ë°˜ì§€ë¦„. orbitRadius â‰ˆ 0.6 * sqrt(AU)
 };
 
-// ½ÇÁ¦ ºñÀ²À» ¾ĞÃàÇÑ °ªµé (Áö±¸ ¹İÁö¸§ ±âÁØ, °Å¸® sqrt ¾ĞÃà)
+// ì‹¤ì œ ë¹„ìœ¨ì„ ì••ì¶•í•œ ê°’ë“¤ (í–‰ì„± ì´ë¦„, ë°˜ì§€ë¦„, ê³µì „ ê¶¤ë„)
 PlanetConfig gPlanets[PLANET_COUNT] = {
     { "Mercury", 0.034f, 0.375f },
     { "Venus",   0.049f, 0.509f },
@@ -42,22 +42,22 @@ PlanetConfig gPlanets[PLANET_COUNT] = {
     { "Neptune", 0.086f, 3.286f }
 };
 
-// ÅÂ¾ç Å©±â (È­¸é ±âÁØ)
+// íƒœì–‘ í¬ê¸° (í™”ë©´ ê¸°ì¤€)
 const float SUN_RADIUS = 0.327f;
 
-// °´Ã¼ Å¬·¡½º (18.cpp ½ºÅ¸ÀÏ·Î ¼öÁ¤)
+// ê°ì²´ í´ë˜ìŠ¤ (18.cpp ìŠ¤íƒ€ì¼ë¡œ ìˆ˜ì •)
 class Shape {
 public:
     std::vector<float> vertices;
     std::vector<float> colors;
-    std::vector<int> index; // unsigned int ¡æ int·Î º¯°æ (18.cpp¿Í ÀÏÄ¡)
+    std::vector<int> index; // unsigned int â†’ intë¡œ ë³€ê²½ (18.cppì™€ ì¼ì¹˜)
     float center[3]{};
     float size = 0.5f;
     GLuint VAO, VBO[2], EBO;
     GLUquadricObj* obj = nullptr;
     int type = 0; // 0: orbit, 1: sphere, 2: cylinder, 3: cone
 
-    // º¯È¯ °ü·Ã º¯¼öµé
+    // ë³€í™˜ ê´€ë ¨ ë³€ìˆ˜ë“¤
     int x_rotate = 0, y_rotate = 0, revolution = 0;
     int origin_scale = 0, self_scale = 0;
     float translation[3] = { 0.0f };
@@ -67,22 +67,22 @@ public:
     float origin_scale_value[3]{ 1.0f, 1.0f, 1.0f };
     float self_scale_value[3]{ 1.0f, 1.0f, 1.0f };
 
-    // ¾Ö´Ï¸ŞÀÌ¼Ç °ü·Ã º¯¼ö
+    // ì• ë‹ˆë©”ì´ì…˜ ê´€ë ¨ ë³€ìˆ˜
     bool isAnimating = false;
     float animProgress = 0.0f;
     float startPos[3] = { 0.0f };
     float targetPos[3] = { 0.0f };
     float animSpeed = 0.02f;
-    int animType = 0; // 0: ¾øÀ½, 1: ¿øÁ¡ Åë°ú, 2: À§/¾Æ·¡ ÀÌµ¿
+    int animType = 0; // 0: ì—†ìŒ, 1: ì›ì  í†µê³¼, 2: ìœ„/ì•„ë˜ ì´ë™
 
-    // ±Ëµµ »ı¼º ÇÔ¼ö (18.cpp ½ºÅ¸ÀÏ·Î ´Ü¼øÈ­)
+    // ê¶¤ë„ ìƒì„± í•¨ìˆ˜ (18.cpp ìŠ¤íƒ€ì¼ë¡œ ë‹¨ìˆœí™”)
     void createOrbit(float radius, int segments) {
         vertices.clear();
         index.clear();
         colors.clear();
         type = 0;
 
-        // ¿ø ÇüÅÂÀÇ Á¤Á¡ »ı¼º
+        // ì› í˜•íƒœì˜ ì •ì  ìƒì„±
         for (int i = 0; i <= segments; i++) {
             float angle = 2.0f * M_PI * i / segments;
             float x = radius * cos(angle);
@@ -92,7 +92,7 @@ public:
             vertices.push_back(0.0f);
             vertices.push_back(z);
 
-            // ±Ëµµ »ö»ó (È¸»ö)
+            // ê¶¤ë„ ìƒ‰ìƒ (íšŒìƒ‰)
             colors.push_back(0.5f);
             colors.push_back(0.5f);
             colors.push_back(0.5f);
@@ -101,7 +101,7 @@ public:
         }
     }
 
-    // GLU ±¸Ã¼ »ı¼º
+    // GLU êµ¬ì²´ ìƒì„±
     void createSphere(float radius = 0.5f) {
         obj = gluNewQuadric();
         gluQuadricDrawStyle(obj, GLU_LINE);
@@ -111,7 +111,7 @@ public:
         type = 1;
     }
 
-    // 18.cppÀÇ getTransformedPositionÀ» ±×´ë·Î »ç¿ë
+    // 18.cppì˜ getTransformedPositionì„ ê·¸ëŒ€ë¡œ ì‚¬ìš©
     void getTransformedPosition(float outPos[3]) const {
         glm::mat4 baseRotation = glm::mat4(1.0f);
         baseRotation = glm::rotate(baseRotation, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -144,13 +144,11 @@ public:
     }
 };
 
-//--- Àü¿ª º¯¼öµé (¿øº» 19.cpp¿Í À¯»çÇÏ°Ô)
-Shape orbits[3];
-Shape s_orbits[3];
-Shape centerSphere;
-Shape planetSpheres[3];
-Shape moonSpheres[3];
-Shape axis; // Ãà Ãß°¡
+//--- ì „ì—­ ë³€ìˆ˜ë“¤ (ì›ë³¸ 19.cppì™€ ìœ ì‚¬í•˜ê²Œ)
+Shape centerSphere;                  // íƒœì–‘
+Shape planetSpheres[PLANET_COUNT];   // ê° í–‰ì„±
+Shape orbits[PLANET_COUNT];          // ê° í–‰ì„± ê¶¤ë„
+Shape axis;                          // ì¢Œí‘œì¶•
 
 glm::mat4 Matrix[3];
 glm::mat4 s_Matrix[3];
@@ -165,12 +163,12 @@ bool isGlobalAnimating = false;
 float scale = 1.0f, zangle = 1.0f;
 int currentAnimationType = 0;
 
-GLint width = 500, height = 500; // 18.cpp¿Í µ¿ÀÏÇÏ°Ô
+GLint width = 500, height = 500; // 18.cppì™€ ë™ì¼í•˜ê²Œ
 GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
-// ÇÔ¼ö ¼±¾ğ
+// í•¨ìˆ˜ ì„ ì–¸
 void make_vertexShaders();
 void make_fragmentShaders();
 void make_shaderProgram();
@@ -204,7 +202,7 @@ char* filetobuf(const char* file) {
     return buf;
 }
 
-// 18.cppÀÇ createAxis ÇÔ¼ö ±×´ë·Î »ç¿ë
+// 18.cppì˜ createAxis í•¨ìˆ˜ ê·¸ëŒ€ë¡œ ì‚¬ìš©
 void createAxis(Shape& shape) {
     shape.vertices = {
         1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
@@ -224,7 +222,7 @@ void createAxis(Shape& shape) {
     initBuffer(shape);
 }
 
-// 18.cppÀÇ initBuffer ÇÔ¼ö ±×´ë·Î »ç¿ë
+// 18.cppì˜ initBuffer í•¨ìˆ˜ ê·¸ëŒ€ë¡œ ì‚¬ìš©
 GLvoid initBuffer(Shape& shape) {
     glGenVertexArrays(1, &shape.VAO);
     glBindVertexArray(shape.VAO);
@@ -247,7 +245,7 @@ GLvoid initBuffer(Shape& shape) {
     }
 }
 
-//--- ¸ŞÀÎ ÇÔ¼ö
+//--- ë©”ì¸ í•¨ìˆ˜
 void main(int argc, char** argv) {
     width = 500;
     height = 500;
@@ -265,12 +263,12 @@ void main(int argc, char** argv) {
 
     make_shaderProgram();
 
-    createAxis(axis); // Ãà »ı¼º
+    createAxis(axis); // ì¶• ìƒì„±
 
     menu();
     CreateMatrix();
 
-    // ±Ëµµ »ı¼º ¹× ¹öÆÛ ÃÊ±âÈ­
+    // ê¶¤ë„ ìƒì„± ë° ë²„í¼ ì´ˆê¸°í™”
     for (int i = 0; i < 3; i++) {
         orbits[i].createOrbit(0.5f, 100);
         initBuffer(orbits[i]);
@@ -278,7 +276,7 @@ void main(int argc, char** argv) {
         initBuffer(s_orbits[i]);
     }
 
-    // ±¸Ã¼µé »ı¼º
+    // êµ¬ì²´ë“¤ ìƒì„±
     centerSphere.createSphere(0.2f);
     for (int i = 0; i < 3; i++) {
         planetSpheres[i].createSphere(0.05f);
@@ -294,15 +292,15 @@ void main(int argc, char** argv) {
 
 void menu() {
     std::cout << "=== Solar System Simulation (18 Style) ===" << std::endl;
-    std::cout << "p: Á÷°¢Åõ¿µ / ¿ø±ÙÅõ¿µ" << std::endl;
-    std::cout << "m: ¼Ö¸®µå / ¿ÍÀÌ¾î" << std::endl;
-    std::cout << "w/a/s/d: »óÇÏÁÂ¿ì ÀÌµ¿" << std::endl;
-    std::cout << "+/-: Ä«¸Ş¶ó zÃà ÀÌµ¿" << std::endl;
-    std::cout << "y/Y: ±Ëµµµé ¹İÁö¸§ Å©±âÁ¶Àı" << std::endl;
-    std::cout << "z/Z: ÁÖº¯±¸°¡ zÃàÀ¸·Î È¸Àü" << std::endl;
-    std::cout << "t: ¿øÁ¡ Åë°ú ¾Ö´Ï¸ŞÀÌ¼Ç" << std::endl;
-    std::cout << "u: À§/¾Æ·¡ ÀÌµ¿ ¾Ö´Ï¸ŞÀÌ¼Ç" << std::endl;
-    std::cout << "q: Á¾·á" << std::endl;
+    std::cout << "p: ì§ê°íˆ¬ì˜ / ì›ê·¼íˆ¬ì˜" << std::endl;
+    std::cout << "m: ì†”ë¦¬ë“œ / ì™€ì´ì–´" << std::endl;
+    std::cout << "w/a/s/d: ìƒí•˜ì¢Œìš° ì´ë™" << std::endl;
+    std::cout << "+/-: ì¹´ë©”ë¼ zì¶• ì´ë™" << std::endl;
+    std::cout << "y/Y: ê¶¤ë„ë“¤ ë°˜ì§€ë¦„ í¬ê¸°ì¡°ì ˆ" << std::endl;
+    std::cout << "z/Z: ì£¼ë³€êµ¬ê°€ zì¶•ìœ¼ë¡œ íšŒì „" << std::endl;
+    std::cout << "t: ì›ì  í†µê³¼ ì• ë‹ˆë©”ì´ì…˜" << std::endl;
+    std::cout << "u: ìœ„/ì•„ë˜ ì´ë™ ì• ë‹ˆë©”ì´ì…˜" << std::endl;
+    std::cout << "q: ì¢…ë£Œ" << std::endl;
 }
 
 void CreateMatrix() {
@@ -324,7 +322,7 @@ void scaling(float s) {
     scalemat = glm::scale(glm::mat4(1.0f), glm::vec3(s, s, s));
 }
 
-// 18.cppÀÇ ¾Ö´Ï¸ŞÀÌ¼Ç ÇÔ¼öµé ±×´ë·Î »ç¿ë
+// 18.cppì˜ ì• ë‹ˆë©”ì´ì…˜ í•¨ìˆ˜ë“¤ ê·¸ëŒ€ë¡œ ì‚¬ìš©
 void startOriginPassAnimation() {
     if (isGlobalAnimating) return;
 
@@ -345,7 +343,7 @@ void startOriginPassAnimation() {
         planetSpheres[i].targetPos[2] = planetSpheres[targetIndex].startPos[2];
     }
 
-    std::cout << "¿øÁ¡ Åë°ú ¾Ö´Ï¸ŞÀÌ¼Ç ½ÃÀÛ!" << std::endl;
+    std::cout << "ì›ì  í†µê³¼ ì• ë‹ˆë©”ì´ì…˜ ì‹œì‘!" << std::endl;
 }
 
 void startUpDownAnimation() {
@@ -368,7 +366,7 @@ void startUpDownAnimation() {
         planetSpheres[i].targetPos[2] = planetSpheres[targetIndex].startPos[2];
     }
 
-    std::cout << "À§/¾Æ·¡ ÀÌµ¿ ¾Ö´Ï¸ŞÀÌ¼Ç ½ÃÀÛ!" << std::endl;
+    std::cout << "ìœ„/ì•„ë˜ ì´ë™ ì• ë‹ˆë©”ì´ì…˜ ì‹œì‘!" << std::endl;
 }
 
 void updateAnimations() {
@@ -391,7 +389,7 @@ void updateAnimations() {
             else {
                 allAnimationComplete = false;
 
-                if (currentAnimationType == 1) { // ¿øÁ¡ Åë°ú
+                if (currentAnimationType == 1) { // ì›ì  í†µê³¼
                     float t = planetSpheres[i].animProgress;
                     glm::vec3 currentPos;
 
@@ -412,7 +410,7 @@ void updateAnimations() {
                     planetSpheres[i].translation[1] = currentPos.y;
                     planetSpheres[i].translation[2] = currentPos.z;
                 }
-                else if (currentAnimationType == 2) { // À§/¾Æ·¡ ÀÌµ¿
+                else if (currentAnimationType == 2) { // ìœ„/ì•„ë˜ ì´ë™
                     float t = planetSpheres[i].animProgress;
 
                     glm::vec3 linearPos;
@@ -439,15 +437,15 @@ void updateAnimations() {
     if (allAnimationComplete) {
         isGlobalAnimating = false;
         currentAnimationType = 0;
-        std::cout << "¾Ö´Ï¸ŞÀÌ¼Ç ¿Ï·á!" << std::endl;
+        std::cout << "ì• ë‹ˆë©”ì´ì…˜ ì™„ë£Œ!" << std::endl;
     }
 }
 
-//--- ¼ÎÀÌ´õ ÇÔ¼öµé
+//--- ì…°ì´ë” í•¨ìˆ˜ë“¤
 void make_vertexShaders() {
     GLchar* vertexSource = filetobuf("vertex_3d.glsl");
     if (!vertexSource) {
-        std::cerr << "ERROR: vertex shader ÆÄÀÏÀ» ÀĞÀ» ¼ö ¾ø½À´Ï´Ù." << std::endl;
+        std::cerr << "ERROR: vertex shader íŒŒì¼ì„ ì½ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤." << std::endl;
         return;
     }
 
@@ -460,7 +458,7 @@ void make_vertexShaders() {
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &result);
     if (!result) {
         glGetShaderInfoLog(vertexShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: vertex shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: vertex shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
     }
     free(vertexSource);
 }
@@ -468,7 +466,7 @@ void make_vertexShaders() {
 void make_fragmentShaders() {
     GLchar* fragmentSource = filetobuf("fragment_3d.glsl");
     if (!fragmentSource) {
-        std::cerr << "ERROR: fragment shader ÆÄÀÏÀ» ÀĞÀ» ¼ö ¾ø½À´Ï´Ù." << std::endl;
+        std::cerr << "ERROR: fragment shader íŒŒì¼ì„ ì½ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤." << std::endl;
         return;
     }
 
@@ -481,7 +479,7 @@ void make_fragmentShaders() {
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &result);
     if (!result) {
         glGetShaderInfoLog(fragmentShader, 512, NULL, errorLog);
-        std::cerr << "ERROR: fragment shader ÄÄÆÄÀÏ ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: fragment shader ì»´íŒŒì¼ ì‹¤íŒ¨\n" << errorLog << std::endl;
     }
     free(fragmentSource);
 }
@@ -503,15 +501,15 @@ void make_shaderProgram() {
     glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
     if (!result) {
         glGetProgramInfoLog(shaderProgramID, 512, NULL, errorLog);
-        std::cerr << "ERROR: shader program ¿¬°á ½ÇÆĞ\n" << errorLog << std::endl;
+        std::cerr << "ERROR: shader program ì—°ê²° ì‹¤íŒ¨\n" << errorLog << std::endl;
         return;
     }
 
     glUseProgram(shaderProgramID);
-    std::cout << "¼ÎÀÌ´õ ÇÁ·Î±×·¥ ÃÊ±âÈ­ ¿Ï·á" << std::endl;
+    std::cout << "ì…°ì´ë” í”„ë¡œê·¸ë¨ ì´ˆê¸°í™” ì™„ë£Œ" << std::endl;
 }
 
-//--- Ãâ·Â Äİ¹é ÇÔ¼ö (18.cpp ½ºÅ¸ÀÏ·Î ´Ü¼øÈ­)
+//--- ì¶œë ¥ ì½œë°± í•¨ìˆ˜ (18.cpp ìŠ¤íƒ€ì¼ë¡œ ë‹¨ìˆœí™”)
 GLvoid drawScene() {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -534,13 +532,13 @@ GLvoid drawScene() {
 
     unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "Matrix");
 
-    // Ãà ±×¸®±â (18.cpp¿Í µ¿ÀÏ)
+    // ì¶• ê·¸ë¦¬ê¸° (18.cppì™€ ë™ì¼)
     glm::mat4 axisMatrix = projection * view * baseRotation;
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(axisMatrix));
     glBindVertexArray(axis.VAO);
     glDrawElements(GL_LINES, axis.index.size(), GL_UNSIGNED_INT, 0);
 
-    // ±Ëµµ ±×¸®±â (¼ÎÀÌ´õ »ç¿ë)
+    // ê¶¤ë„ ê·¸ë¦¬ê¸° (ì…°ì´ë” ì‚¬ìš©)
     for (int i = 0; i < 3; i++) {
         glm::mat4 orbitMatrix = projection * view * baseRotation * movemat * zmat * scalemat * smat[i];
         glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(orbitMatrix));
@@ -553,10 +551,10 @@ GLvoid drawScene() {
         glDrawElements(GL_LINE_LOOP, s_orbits[i].index.size(), GL_UNSIGNED_INT, 0);
     }
 
-    // GLU °´Ã¼µé ·»´õ¸µ (18.cpp¿Í µ¿ÀÏÇÑ ¹æ½Ä)
+    // GLU ê°ì²´ë“¤ ë Œë”ë§ (18.cppì™€ ë™ì¼í•œ ë°©ì‹)
     glUseProgram(0);
 
-    // Åõ¿µ ¼³Á¤
+    // íˆ¬ì˜ ì„¤ì •
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     if (angle) {
@@ -570,10 +568,10 @@ GLvoid drawScene() {
     glLoadIdentity();
     glTranslatef(0.0f, 0.0f, -3.0f);
 
-    // baseRotation Àû¿ë
+    // baseRotation ì ìš©
     glMultMatrixf(glm::value_ptr(baseRotation));
 
-    // ½ºÅ¸ÀÏ ¼³Á¤
+    // ìŠ¤íƒ€ì¼ ì„¤ì •
     if (solid) {
         if (centerSphere.obj) gluQuadricDrawStyle(centerSphere.obj, GLU_FILL);
         for (int i = 0; i < 3; i++) {
@@ -589,14 +587,14 @@ GLvoid drawScene() {
         }
     }
 
-    // Áß½É ±¸ ·»´õ¸µ - »¡°£»ö
+    // ì¤‘ì‹¬ êµ¬ ë Œë”ë§ - ë¹¨ê°„ìƒ‰
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
     glColor3f(1.0f, 0.0f, 0.0f);
     if (centerSphere.obj) gluSphere(centerSphere.obj, centerSphere.size, 20, 20);
     glPopMatrix();
 
-    // Çà¼ºµé ·»´õ¸µ - ÃÊ·Ï»ö
+    // í–‰ì„±ë“¤ ë Œë”ë§ - ì´ˆë¡ìƒ‰
     glColor3f(0.0f, 1.0f, 0.0f);
     for (int i = 0; i < 3; i++) {
         glPushMatrix();
@@ -604,7 +602,7 @@ GLvoid drawScene() {
         if (planetSpheres[i].obj) gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 10, 10);
         glPopMatrix();
 
-        // ´Şµé ·»´õ¸µ - ÆÄ¶õ»ö
+        // ë‹¬ë“¤ ë Œë”ë§ - íŒŒë€ìƒ‰
         glColor3f(0.0f, 0.0f, 1.0f);
         glPushMatrix();
         glMultMatrixf(glm::value_ptr(movemat * zmat * scalemat * smat[i] * Matrix[i] * s_Matrix[i]));
@@ -621,61 +619,61 @@ GLvoid Reshape(int w, int h) {
     height = h;
 }
 
-// Å°º¸µå Äİ¹é ÇÔ¼ö (µğ¹ö±× Ãâ·Â Ãß°¡)
+// í‚¤ë³´ë“œ ì½œë°± í•¨ìˆ˜ (ë””ë²„ê·¸ ì¶œë ¥ ì¶”ê°€)
 GLvoid Keyboard(unsigned char key, int x, int y) {
-    std::cout << "Å° ÀÔ·Â °¨Áö: '" << key << "' (ASCII: " << (int)key << ")" << std::endl;
+    std::cout << "í‚¤ ì…ë ¥ ê°ì§€: '" << key << "' (ASCII: " << (int)key << ")" << std::endl;
 
     switch (key) {
     case 'p':
     case 'P':
         angle = !angle;
-        std::cout << "Åõ¿µ ¸ğµå º¯°æ: " << (angle ? "Á÷°¢Åõ¿µ" : "¿ø±ÙÅõ¿µ") << std::endl;
+        std::cout << "íˆ¬ì˜ ëª¨ë“œ ë³€ê²½: " << (angle ? "ì§ê°íˆ¬ì˜" : "ì›ê·¼íˆ¬ì˜") << std::endl;
         break;
     case 'm':
     case 'M':
         solid = !solid;
-        std::cout << "·»´õ¸µ ¸ğµå º¯°æ: " << (solid ? "¼Ö¸®µå" : "¿ÍÀÌ¾îÇÁ·¹ÀÓ") << std::endl;
+        std::cout << "ë Œë”ë§ ëª¨ë“œ ë³€ê²½: " << (solid ? "ì†”ë¦¬ë“œ" : "ì™€ì´ì–´í”„ë ˆì„") << std::endl;
         break;
     case 'w':
     case 'W':
         movemat = glm::translate(movemat, glm::vec3(0.0f, 0.1f, 0.0f));
-        std::cout << "À§·Î ÀÌµ¿" << std::endl;
+        std::cout << "ìœ„ë¡œ ì´ë™" << std::endl;
         break;
     case 'a':
     case 'A':
         movemat = glm::translate(movemat, glm::vec3(-0.1f, 0.0f, 0.0f));
-        std::cout << "¿ŞÂÊÀ¸·Î ÀÌµ¿" << std::endl;
+        std::cout << "ì™¼ìª½ìœ¼ë¡œ ì´ë™" << std::endl;
         break;
     case 's':
     case 'S':
         movemat = glm::translate(movemat, glm::vec3(0.0f, -0.1f, 0.0f));
-        std::cout << "¾Æ·¡·Î ÀÌµ¿" << std::endl;
+        std::cout << "ì•„ë˜ë¡œ ì´ë™" << std::endl;
         break;
     case 'd':
     case 'D':
         movemat = glm::translate(movemat, glm::vec3(0.1f, 0.0f, 0.0f));
-        std::cout << "¿À¸¥ÂÊÀ¸·Î ÀÌµ¿" << std::endl;
+        std::cout << "ì˜¤ë¥¸ìª½ìœ¼ë¡œ ì´ë™" << std::endl;
         break;
     case 'y':
         scale += 0.1f;
         scaling(scale);
-        std::cout << "½ºÄÉÀÏ Áõ°¡: " << scale << std::endl;
+        std::cout << "ìŠ¤ì¼€ì¼ ì¦ê°€: " << scale << std::endl;
         break;
     case 'Y':
         scale -= 0.1f;
         if (scale < 0.1f) scale = 0.1f;
         scaling(scale);
-        std::cout << "½ºÄÉÀÏ °¨¼Ò: " << scale << std::endl;
+        std::cout << "ìŠ¤ì¼€ì¼ ê°ì†Œ: " << scale << std::endl;
         break;
     case 'z':
         z_rotate = true;
         zangle = 2.0f;
-        std::cout << "zÃà È¸Àü ½ÃÀÛ (½Ã°è¹æÇâ)" << std::endl;
+        std::cout << "zì¶• íšŒì „ ì‹œì‘ (ì‹œê³„ë°©í–¥)" << std::endl;
         break;
     case 'Z':
         z_rotate = true;
         zangle = -2.0f;
-        std::cout << "zÃà È¸Àü ½ÃÀÛ (¹İ½Ã°è¹æÇâ)" << std::endl;
+        std::cout << "zì¶• íšŒì „ ì‹œì‘ (ë°˜ì‹œê³„ë°©í–¥)" << std::endl;
         break;
     case 't':
     case 'T':
@@ -687,25 +685,25 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         break;
     case 'q':
     case 'Q':
-        std::cout << "ÇÁ·Î±×·¥ Á¾·á" << std::endl;
+        std::cout << "í”„ë¡œê·¸ë¨ ì¢…ë£Œ" << std::endl;
         exit(0);
         break;
     case 27: // ESC key
-        std::cout << "ESC Å°·Î ÇÁ·Î±×·¥ Á¾·á" << std::endl;
+        std::cout << "ESC í‚¤ë¡œ í”„ë¡œê·¸ë¨ ì¢…ë£Œ" << std::endl;
         exit(0);
         break;
     default:
-        std::cout << "¾Ë ¼ö ¾ø´Â Å° ÀÔ·Â" << std::endl;
+        std::cout << "ì•Œ ìˆ˜ ì—†ëŠ” í‚¤ ì…ë ¥" << std::endl;
         break;
     }
     glutPostRedisplay();
 }
 
 void TimerFunction(int value) {
-    // ¾Ö´Ï¸ŞÀÌ¼Ç ¾÷µ¥ÀÌÆ®
+    // ì• ë‹ˆë©”ì´ì…˜ ì—…ë°ì´íŠ¸
     updateAnimations();
 
-    // ±âº» È¸Àü (¾Ö´Ï¸ŞÀÌ¼Ç ÁßÀÌ ¾Æ´Ò ¶§¸¸)
+    // ê¸°ë³¸ íšŒì „ (ì• ë‹ˆë©”ì´ì…˜ ì¤‘ì´ ì•„ë‹ ë•Œë§Œ)
     if (!isGlobalAnimating) {
         glm::mat4 a = glm::rotate(glm::mat4(1.0f), glm::radians(1.5f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 b = glm::rotate(glm::mat4(1.0f), glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
