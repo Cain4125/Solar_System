@@ -192,6 +192,7 @@ void startUpDownAnimation();
 GLvoid initBuffer(Shape& shape);
 void createAxis(Shape& shape);
 void initPlanets();
+void updateRevolutionSpeed();
 
 char* filetobuf(const char* file) {
     FILE* fptr;
@@ -297,10 +298,8 @@ void main(int argc, char** argv) {
     initPlanets(); // 행성 객체 생성
 
     // 공전 초기화
-    for (int i = 0; i < PLANET_COUNT; i++) {
-        float dailyDeg = 360.0f / gPlanets[i].orbitPeriodDays;
-        gRevolutionSpeed[i] = dailyDeg * gTimeScale;            
-    }
+    updateRevolutionSpeed();
+
 
     glutTimerFunc(16, TimerFunction, 0);
     glutDisplayFunc(drawScene);
@@ -716,6 +715,20 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
             gCameraZ = -10.0f;   
         std::cout << "줌 아웃, gCameraZ = " << gCameraZ << std::endl;
         break;
+    case ']':   // timeScale 증가
+        gTimeScale += 0.01f;
+        if (gTimeScale > 5.0f) gTimeScale = 5.0f;   // 최대 5배속
+        updateRevolutionSpeed();
+        std::cout << "timeScale 증가: " << gTimeScale << std::endl;
+        break;
+
+    case '[':   // timeScale 감소
+        gTimeScale -= 0.01f;
+        if (gTimeScale < 0.001f) gTimeScale = 0.001f; // 0에 가까운 값으로 제한 (역행 방지)
+        updateRevolutionSpeed();
+        std::cout << "timeScale 감소: " << gTimeScale << std::endl;
+        break;
+
     case 27: // ESC key
         std::cout << "ESC 키로 프로그램 종료" << std::endl;
         exit(0);
@@ -741,4 +754,11 @@ void TimerFunction(int value) {
 
     glutPostRedisplay();
     glutTimerFunc(16, TimerFunction, 0);
+}
+
+void updateRevolutionSpeed() {
+    for (int i = 0; i < PLANET_COUNT; i++) {
+        float dailyDeg = 360.0f / gPlanets[i].orbitPeriodDays;
+        gRevolutionSpeed[i] = dailyDeg * gTimeScale;
+    }
 }
