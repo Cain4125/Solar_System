@@ -246,7 +246,18 @@ GLvoid initBuffer(Shape& shape) {
 }
 
 void initPlanets() {
+    // 태양
+    centerSphere.createSphere(SUN_RADIUS);
 
+    // 행성
+    for (int i = 0; i < PLANET_COUNT; i++) {
+        // 궤도 생성
+        orbits[i].createOrbit(gPlanets[i].orbitRadius, 120);
+        initBuffer(orbits[i]);
+
+        // 구체 생성
+        planetSpheres[i].createSphere(gPlanets[i].displayRadius);
+    }
 }
 
 //--- 메인 함수
