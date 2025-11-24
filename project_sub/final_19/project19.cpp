@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <random>
 #include <vector>
 #include <cmath>
 
@@ -15,10 +14,6 @@
 #include <gl/glm/glm.hpp>
 #include <gl/glm/ext.hpp>
 #include <gl/glm/gtc/matrix_transform.hpp>
-
-std::random_device rd;
-std::mt19937 gen(rd());
-std::uniform_real_distribution<float> dis(0.0f, 1.0f);
 
 // 행성 개수
 const int PLANET_COUNT = 8;
@@ -47,7 +42,6 @@ PlanetConfig gPlanets[PLANET_COUNT] = {
 // 태양 크기 (화면 기준)
 const float SUN_RADIUS = 0.327f;
 
-// 객체 클래스 (18.cpp 스타일로 수정)
 class Shape {
 public:
     std::vector<float> vertices;
@@ -69,15 +63,7 @@ public:
     float origin_scale_value[3]{ 1.0f, 1.0f, 1.0f };
     float self_scale_value[3]{ 1.0f, 1.0f, 1.0f };
 
-    // 애니메이션 관련 변수
-    bool isAnimating = false;
-    float animProgress = 0.0f;
-    float startPos[3] = { 0.0f };
-    float targetPos[3] = { 0.0f };
-    float animSpeed = 0.02f;
-    int animType = 0; // 0: 없음, 1: 원점 통과, 2: 위/아래 이동
-
-    // 궤도 생성 함수 (18.cpp 스타일로 단순화)
+    // 궤도 생성 함수
     void createOrbit(float radius, int segments) {
         vertices.clear();
         index.clear();
@@ -113,32 +99,6 @@ public:
         type = 1;
     }
 
-    // 18.cpp의 getTransformedPosition을 그대로 사용
-    void getTransformedPosition(float outPos[3]) const {
-        glm::mat4 baseRotation = glm::mat4(1.0f);
-        baseRotation = glm::rotate(baseRotation, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        baseRotation = glm::rotate(baseRotation, glm::radians(50.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-
-        glm::mat4 modelMatrix = baseRotation;
-
-        modelMatrix = glm::scale(modelMatrix, glm::vec3(
-            origin_scale_value[0], origin_scale_value[1], origin_scale_value[2]
-        ));
-
-        modelMatrix = glm::rotate(modelMatrix, glm::radians(revolutionAngle),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-
-        modelMatrix = glm::translate(modelMatrix, glm::vec3(
-            translation[0], translation[1], translation[2]
-        ));
-
-        glm::vec4 transformedPos = modelMatrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-
-        outPos[0] = transformedPos.x;
-        outPos[1] = transformedPos.y;
-        outPos[2] = transformedPos.z;
-    }
-
     ~Shape() {
         if (obj) {
             gluDeleteQuadric(obj);
@@ -146,7 +106,7 @@ public:
     }
 };
 
-//--- 전역 변수들 (원본 19.cpp와 유사하게)
+//--- 전역 변수들
 Shape centerSphere;                  // 태양
 Shape planetSpheres[PLANET_COUNT];   // 각 행성
 Shape orbits[PLANET_COUNT];          // 각 행성 궤도
@@ -211,7 +171,6 @@ char* filetobuf(const char* file) {
     return buf;
 }
 
-// 18.cpp의 createAxis 함수 그대로 사용
 void createAxis(Shape& shape) {
     shape.vertices = {
         1.0f, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
@@ -231,7 +190,6 @@ void createAxis(Shape& shape) {
     initBuffer(shape);
 }
 
-// 18.cpp의 initBuffer 함수 그대로 사용
 GLvoid initBuffer(Shape& shape) {
     glGenVertexArrays(1, &shape.VAO);
     glBindVertexArray(shape.VAO);
@@ -330,129 +288,6 @@ void CreateMatrix() {
     for (int i = 0; i < 3; i++) {
         Matrix[i] = transmat;
         s_Matrix[i] = s_transmat;
-    }
-}
-
-void scaling(float s) {
-    scalemat = glm::scale(glm::mat4(1.0f), glm::vec3(s, s, s));
-}
-
-// 18.cpp의 애니메이션 함수들 그대로 사용
-void startOriginPassAnimation() {
-    if (isGlobalAnimating) return;
-
-    isGlobalAnimating = true;
-    currentAnimationType = 1;
-
-    for (int i = 0; i < 3; i++) {
-        planetSpheres[i].isAnimating = true;
-        planetSpheres[i].animProgress = 0.0f;
-        planetSpheres[i].animType = 1;
-        planetSpheres[i].getTransformedPosition(planetSpheres[i].startPos);
-    }
-
-    for (int i = 0; i < 3; i++) {
-        int targetIndex = (i + 1) % 3;
-        planetSpheres[i].targetPos[0] = planetSpheres[targetIndex].startPos[0];
-        planetSpheres[i].targetPos[1] = planetSpheres[targetIndex].startPos[1];
-        planetSpheres[i].targetPos[2] = planetSpheres[targetIndex].startPos[2];
-    }
-
-    std::cout << "원점 통과 애니메이션 시작!" << std::endl;
-}
-
-void startUpDownAnimation() {
-    if (isGlobalAnimating) return;
-
-    isGlobalAnimating = true;
-    currentAnimationType = 2;
-
-    for (int i = 0; i < 3; i++) {
-        planetSpheres[i].isAnimating = true;
-        planetSpheres[i].animProgress = 0.0f;
-        planetSpheres[i].animType = 2;
-        planetSpheres[i].getTransformedPosition(planetSpheres[i].startPos);
-    }
-
-    for (int i = 0; i < 3; i++) {
-        int targetIndex = (i + 1) % 3;
-        planetSpheres[i].targetPos[0] = planetSpheres[targetIndex].startPos[0];
-        planetSpheres[i].targetPos[1] = planetSpheres[targetIndex].startPos[1];
-        planetSpheres[i].targetPos[2] = planetSpheres[targetIndex].startPos[2];
-    }
-
-    std::cout << "위/아래 이동 애니메이션 시작!" << std::endl;
-}
-
-void updateAnimations() {
-    if (!isGlobalAnimating) return;
-
-    bool allAnimationComplete = true;
-
-    for (int i = 0; i < 3; i++) {
-        if (planetSpheres[i].isAnimating) {
-            planetSpheres[i].animProgress += planetSpheres[i].animSpeed;
-
-            if (planetSpheres[i].animProgress >= 1.0f) {
-                planetSpheres[i].animProgress = 1.0f;
-                planetSpheres[i].isAnimating = false;
-
-                planetSpheres[i].translation[0] = planetSpheres[i].targetPos[0];
-                planetSpheres[i].translation[1] = planetSpheres[i].targetPos[1];
-                planetSpheres[i].translation[2] = planetSpheres[i].targetPos[2];
-            }
-            else {
-                allAnimationComplete = false;
-
-                if (currentAnimationType == 1) { // 원점 통과
-                    float t = planetSpheres[i].animProgress;
-                    glm::vec3 currentPos;
-
-                    if (t <= 0.5f) {
-                        float localT = t * 2.0f;
-                        currentPos.x = planetSpheres[i].startPos[0] * (1.0f - localT);
-                        currentPos.y = planetSpheres[i].startPos[1] * (1.0f - localT);
-                        currentPos.z = planetSpheres[i].startPos[2] * (1.0f - localT);
-                    }
-                    else {
-                        float localT = (t - 0.5f) * 2.0f;
-                        currentPos.x = planetSpheres[i].targetPos[0] * localT;
-                        currentPos.y = planetSpheres[i].targetPos[1] * localT;
-                        currentPos.z = planetSpheres[i].targetPos[2] * localT;
-                    }
-
-                    planetSpheres[i].translation[0] = currentPos.x;
-                    planetSpheres[i].translation[1] = currentPos.y;
-                    planetSpheres[i].translation[2] = currentPos.z;
-                }
-                else if (currentAnimationType == 2) { // 위/아래 이동
-                    float t = planetSpheres[i].animProgress;
-
-                    glm::vec3 linearPos;
-                    linearPos.x = planetSpheres[i].startPos[0] + (planetSpheres[i].targetPos[0] - planetSpheres[i].startPos[0]) * t;
-                    linearPos.y = planetSpheres[i].startPos[1] + (planetSpheres[i].targetPos[1] - planetSpheres[i].startPos[1]) * t;
-                    linearPos.z = planetSpheres[i].startPos[2] + (planetSpheres[i].targetPos[2] - planetSpheres[i].startPos[2]) * t;
-
-                    float heightOffset = sin(t * M_PI) * 1.0f;
-                    if (i % 2 == 0) {
-                        linearPos.y += heightOffset;
-                    }
-                    else {
-                        linearPos.y -= heightOffset;
-                    }
-
-                    planetSpheres[i].translation[0] = linearPos.x;
-                    planetSpheres[i].translation[1] = linearPos.y;
-                    planetSpheres[i].translation[2] = linearPos.z;
-                }
-            }
-        }
-    }
-
-    if (allAnimationComplete) {
-        isGlobalAnimating = false;
-        currentAnimationType = 0;
-        std::cout << "애니메이션 완료!" << std::endl;
     }
 }
 
