@@ -162,7 +162,7 @@ glm::mat4 movemat(1.0f);
 glm::mat4 gPlanetMatrix[PLANET_COUNT]; // 각 행성의 공전 행렬
 float gRevolutionSpeed[PLANET_COUNT]; // 프레임당 회전각도
 float gTimeScale = 0.05f;             // 전체 시간 배속에 활용할 변수
-float gCameraZ = -3.0f;                // 카메라 z 위치
+float gCameraZ = -4.0f;                // 카메라 z 위치
 
 
 bool solid = true, angle = false, z_rotate = false;
