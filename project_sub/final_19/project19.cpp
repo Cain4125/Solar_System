@@ -314,10 +314,7 @@ void menu() {
     std::cout << "m: 솔리드 / 와이어" << std::endl;
     std::cout << "w/a/s/d: 상하좌우 이동" << std::endl;
     std::cout << "+/-: 카메라 z축 이동" << std::endl;
-    std::cout << "y/Y: 궤도들 반지름 크기조절" << std::endl;
-    std::cout << "z/Z: 주변구가 z축으로 회전" << std::endl;
-    std::cout << "t: 원점 통과 애니메이션" << std::endl;
-    std::cout << "u: 위/아래 이동 애니메이션" << std::endl;
+	std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
     std::cout << "q: 종료" << std::endl;
 }
 
@@ -667,35 +664,6 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
     case 'D':
         movemat = glm::translate(movemat, glm::vec3(0.1f, 0.0f, 0.0f));
         std::cout << "오른쪽으로 이동" << std::endl;
-        break;
-    case 'y':
-        scale += 0.1f;
-        scaling(scale);
-        std::cout << "스케일 증가: " << scale << std::endl;
-        break;
-    case 'Y':
-        scale -= 0.1f;
-        if (scale < 0.1f) scale = 0.1f;
-        scaling(scale);
-        std::cout << "스케일 감소: " << scale << std::endl;
-        break;
-    case 'z':
-        z_rotate = true;
-        zangle = 2.0f;
-        std::cout << "z축 회전 시작 (시계방향)" << std::endl;
-        break;
-    case 'Z':
-        z_rotate = true;
-        zangle = -2.0f;
-        std::cout << "z축 회전 시작 (반시계방향)" << std::endl;
-        break;
-    case 't':
-    case 'T':
-        startOriginPassAnimation();
-        break;
-    case 'u':
-    case 'U':
-        startUpDownAnimation();
         break;
     case 'q':
     case 'Q':
