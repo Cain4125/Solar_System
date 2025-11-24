@@ -28,18 +28,20 @@ struct PlanetConfig {
     const char* name;
     float displayRadius; // 구 반지름. 지구 반지름 0.05f 기준 displayRadius = 0.05 * (realRatio ^ 0.4)
     float orbitRadius;   // 궤도 반지름. orbitRadius ≈ 0.6 * sqrt(AU)
+	float orbitPeriodDays; // 공전 주기(일). 회전 속도는 Timer에서 변환: 하루당 회전각 = 360 / orbitPeriodDays, 프레임당 회전각 = (360 / orbitPeriodDays) * timeScale. 
+                           // 실제 공전 비율을 정확히 유지하되, timeScale로 화면 프레임 속도에 맞게 보정
 };
 
-// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도)
+// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도))
 PlanetConfig gPlanets[PLANET_COUNT] = {
-    { "Mercury", 0.034f, 0.375f },
-    { "Venus",   0.049f, 0.509f },
-    { "Earth",   0.050f, 0.600f },
-    { "Mars",    0.039f, 0.740f },
-    { "Jupiter", 0.130f, 1.368f },
-    { "Saturn",  0.121f, 1.849f },
-    { "Uranus",  0.087f, 2.629f },
-    { "Neptune", 0.086f, 3.286f }
+    { "Mercury", 0.034f, 0.375f,   87.97f   },
+    { "Venus",   0.049f, 0.509f,  224.70f   },
+    { "Earth",   0.050f, 0.600f,  365.26f   },
+    { "Mars",    0.039f, 0.740f,  686.98f   },
+    { "Jupiter", 0.130f, 1.368f, 4332.59f   },
+    { "Saturn",  0.121f, 1.849f,10759.22f   },
+    { "Uranus",  0.087f, 2.629f,30685.40f   },
+    { "Neptune", 0.086f, 3.286f,60189.00f   }
 };
 
 // 태양 크기 (화면 기준)
@@ -157,7 +159,10 @@ glm::mat4 big_Matrix;
 glm::mat4 scalemat(1.0f);
 glm::mat4 zmat(1.0f);
 glm::mat4 movemat(1.0f);
-glm::mat4 gPlanetMatrix[PLANET_COUNT];
+glm::mat4 gPlanetMatrix[PLANET_COUNT]; // 각 행성의 공전 행렬
+float gRevolutionSpeed[PLANET_COUNT]; // 프레임당 회전각도
+float gTimeScale = 0.05f;             // 전체 시간 배속에 활용할 변수
+
 
 bool solid = true, angle = false, z_rotate = false;
 bool isGlobalAnimating = false;
@@ -287,7 +292,13 @@ void main(int argc, char** argv) {
     menu();
     CreateMatrix();
 
-    initPlanets();
+    initPlanets(); // 행성 객체 생성
+
+    // 공전 초기화
+    for (int i = 0; i < PLANET_COUNT; i++) {
+        float dailyDeg = 360.0f / gPlanets[i].orbitPeriodDays;
+        gRevolutionSpeed[i] = dailyDeg * gTimeScale;            
+    }
 
     glutTimerFunc(16, TimerFunction, 0);
     glutDisplayFunc(drawScene);
@@ -705,14 +716,11 @@ void TimerFunction(int value) {
 
     // 행성 공전 적용
     for (int i = 0; i < PLANET_COUNT; i++) {
-
-        // 각 행성 공전 속도 임시값(나중에 실제 비율로 변경함)
-        float speed = 0.2f + 0.04f * i;
-
+        float speed = gRevolutionSpeed[i];
         gPlanetMatrix[i] =
             glm::rotate(glm::mat4(1.0f),
-                        glm::radians(speed),
-                        glm::vec3(0.0f, 1.0f, 0.0f)) * gPlanetMatrix[i];
+                glm::radians(speed),
+                glm::vec3(0.0f, 1.0f, 0.0f)) * gPlanetMatrix[i];
     }
 
     glutPostRedisplay();
