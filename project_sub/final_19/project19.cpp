@@ -14,6 +14,11 @@
 #include <gl/glm/glm.hpp>
 #include <gl/glm/ext.hpp>
 #include <gl/glm/gtc/matrix_transform.hpp>
+#include <windows.h>
+#include <wincodec.h>
+#pragma comment(lib, "windowscodecs.lib")
+#include <combaseapi.h>
+#include <GL/glu.h>
 
 // 행성 개수
 const int PLANET_COUNT = 8;
@@ -25,22 +30,29 @@ struct PlanetConfig {
     float orbitRadius;   // 궤도 반지름. orbitRadius ≈ 0.6 * sqrt(AU)
 	float orbitPeriodDays; // 공전 주기(일). 회전 속도는 Timer에서 변환: 하루당 회전각 = 360 / orbitPeriodDays, 프레임당 회전각 = (360 / orbitPeriodDays) * timeScale. 
                            // 실제 공전 비율을 정확히 유지하되, timeScale로 화면 프레임 속도에 맞게 보정
+	const char* textureFile;    // 텍스처 파일 경로
 };
 
-// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도))
+// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도), 텍스처 파일)
 PlanetConfig gPlanets[PLANET_COUNT] = {
-    { "Mercury", 0.034f, 0.375f,   87.97f   },
-    { "Venus",   0.049f, 0.509f,  224.70f   },
-    { "Earth",   0.050f, 0.600f,  365.26f   },
-    { "Mars",    0.039f, 0.740f,  686.98f   },
-    { "Jupiter", 0.130f, 1.368f, 4332.59f   },
-    { "Saturn",  0.121f, 1.849f,10759.22f   },
-    { "Uranus",  0.087f, 2.629f,30685.40f   },
-    { "Neptune", 0.086f, 3.286f,60189.00f   }
+    { "Mercury", 0.034f, 0.375f,   87.97f, "texture/mercury.jpg" },
+    { "Venus",   0.049f, 0.509f,  224.70f, "texture/venus.jpg"},
+    { "Earth",   0.050f, 0.600f,  365.26f, "earth_day.jpg"},
+    { "Mars",    0.039f, 0.740f,  686.98f, ""},
+    { "Jupiter", 0.130f, 1.368f, 4332.59f,""},
+    { "Saturn",  0.121f, 1.849f,10759.22f,""},
+    { "Uranus",  0.087f, 2.629f,30685.40f,""},
+    { "Neptune", 0.086f, 3.286f,60189.00f,""}
 };
 
 // 태양 크기 (화면 기준)
 const float SUN_RADIUS = 0.327f;
+
+
+// 전역 텍스처 핸들 (0: Sun, 1..N: planets)
+GLuint gSunTexture = 0;
+GLuint gPlanetTextures[PLANET_COUNT] = { 0 };
+static GLuint LoadTextureWIC(const char* path);
 
 class Shape {
 public:
@@ -214,7 +226,13 @@ GLvoid initBuffer(Shape& shape) {
 
 void initPlanets() {
     // 태양
+    gSunTexture = LoadTextureWIC("texture/sun.jpg");
+
     centerSphere.createSphere(SUN_RADIUS);
+    if (centerSphere.obj) {
+        gluQuadricTexture(centerSphere.obj, GL_TRUE);
+        gluQuadricNormals(centerSphere.obj, GLU_SMOOTH);
+    }
 
     // 행성
     for (int i = 0; i < PLANET_COUNT; i++) {
@@ -252,6 +270,9 @@ void main(int argc, char** argv) {
 
     menu();
     CreateMatrix();
+
+    // COM 초기화 (WIC 사용을 위해)
+    CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
     initPlanets(); // 행성 객체 생성
 
@@ -332,6 +353,77 @@ void make_fragmentShaders() {
         std::cerr << "ERROR: fragment shader 컴파일 실패\n" << errorLog << std::endl;
     }
     free(fragmentSource);
+}
+
+// WIC 기반 텍스처 로더
+static GLuint LoadTextureWIC(const char* path) {
+    if (!path || !path[0]) return 0;
+    IWICImagingFactory* pFactory = nullptr;
+    if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+        IID_PPV_ARGS(&pFactory)))) return 0;
+
+    int len = (int)strlen(path);
+    std::wstring wpath;
+    wpath.resize(len + 1);
+    MultiByteToWideChar(CP_UTF8, 0, path, -1, &wpath[0], len + 1);
+
+    IWICBitmapDecoder* pDecoder = nullptr;
+    if (FAILED(pFactory->CreateDecoderFromFilename(wpath.c_str(), nullptr, GENERIC_READ,
+        WICDecodeMetadataCacheOnLoad, &pDecoder))) {
+        pFactory->Release();
+        return 0;
+    }
+
+    IWICBitmapFrameDecode* pFrame = nullptr;
+    if (FAILED(pDecoder->GetFrame(0, &pFrame))) {
+        pDecoder->Release();
+        pFactory->Release();
+        return 0;
+    }
+
+    IWICFormatConverter* pConverter = nullptr;
+    if (FAILED(pFactory->CreateFormatConverter(&pConverter))) {
+        pFrame->Release();
+        pDecoder->Release();
+        pFactory->Release();
+        return 0;
+    }
+
+    if (FAILED(pConverter->Initialize(pFrame, GUID_WICPixelFormat32bppBGRA,
+        WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom))) {
+        pConverter->Release();
+        pFrame->Release();
+        pDecoder->Release();
+        pFactory->Release();
+        return 0;
+    }
+
+    UINT w = 0, h = 0;
+    pConverter->GetSize(&w, &h);
+    std::vector<BYTE> buf(w * h * 4);
+    if (FAILED(pConverter->CopyPixels(nullptr, w * 4, (UINT)buf.size(), buf.data()))) {
+        pConverter->Release();
+        pFrame->Release();
+        pDecoder->Release();
+        pFactory->Release();
+        return 0;
+    }
+
+    GLuint tex = 0;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (GLsizei)w, (GLsizei)h, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    pConverter->Release();
+    pFrame->Release();
+    pDecoder->Release();
+    pFactory->Release();
+    return tex;
 }
 
 void make_shaderProgram() {
@@ -431,15 +523,26 @@ GLvoid drawScene() {
         }
     }
     
-    // 중심 구 렌더링 - 빨간색
+    // 중심 구 렌더링 - 태양 (텍스처)
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
-    glColor3f(1.0f, 0.0f, 0.0f);
-    if (centerSphere.obj) gluSphere(centerSphere.obj, centerSphere.size, 20, 20);
+    if (solid) {
+        if (centerSphere.obj) gluQuadricDrawStyle(centerSphere.obj, GLU_FILL);
+        glEnable(GL_TEXTURE_2D);
+        if (gSunTexture) glBindTexture(GL_TEXTURE_2D, gSunTexture);
+    }
+    else {
+        if (centerSphere.obj) gluQuadricDrawStyle(centerSphere.obj, GLU_LINE);
+        glDisable(GL_TEXTURE_2D);
+    }
+    if (centerSphere.obj) gluSphere(centerSphere.obj, centerSphere.size, 40, 40);
+    if (solid) {
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glDisable(GL_TEXTURE_2D);
+    }
     glPopMatrix();
 
-    // 행성들 렌더링 - 초록색
-    glColor3f(0.0f, 1.0f, 0.0f);
+    // 행성들(텍스처 적용)
     for (int i = 0; i < PLANET_COUNT; i++) {
 
         float r = gPlanets[i].orbitRadius;
@@ -448,7 +551,7 @@ GLvoid drawScene() {
 
         // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
-		// 궤도 반지름 만큼 x축으로 이동
+        // 궤도 반지름 만큼 x축으로 이동
         glTranslatef(r, 0.0f, 0.0f); 
 
         if (planetSpheres[i].obj)
