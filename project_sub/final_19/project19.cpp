@@ -14,10 +14,7 @@
 #include <gl/glm/glm.hpp>
 #include <gl/glm/ext.hpp>
 #include <gl/glm/gtc/matrix_transform.hpp>
-#include <windows.h>
 #include <wincodec.h>
-#pragma comment(lib, "windowscodecs.lib")
-#include <combaseapi.h>
 #include <GL/glu.h>
 
 // 행성 개수
@@ -37,12 +34,12 @@ struct PlanetConfig {
 PlanetConfig gPlanets[PLANET_COUNT] = {
     { "Mercury", 0.034f, 0.375f,   87.97f, "texture/mercury.jpg" },
     { "Venus",   0.049f, 0.509f,  224.70f, "texture/venus.jpg"},
-    { "Earth",   0.050f, 0.600f,  365.26f, "earth_day.jpg"},
-    { "Mars",    0.039f, 0.740f,  686.98f, ""},
-    { "Jupiter", 0.130f, 1.368f, 4332.59f,""},
-    { "Saturn",  0.121f, 1.849f,10759.22f,""},
-    { "Uranus",  0.087f, 2.629f,30685.40f,""},
-    { "Neptune", 0.086f, 3.286f,60189.00f,""}
+    { "Earth",   0.050f, 0.600f,  365.26f, "texture/earth_day.jpg"},
+    { "Mars",    0.039f, 0.740f,  686.98f, "texture/mars.jpg"},
+    { "Jupiter", 0.130f, 1.368f, 4332.59f,"texture/jupiter.jpg"},
+    { "Saturn",  0.121f, 1.849f,10759.22f,"texture/saturn.jpg"},
+    { "Uranus",  0.087f, 2.629f,30685.40f,"texture/uranus.jpg"},
+    { "Neptune", 0.086f, 3.286f,60189.00f,"texture/neptune.jpg"}
 };
 
 // 태양 크기 (화면 기준)
@@ -226,22 +223,40 @@ GLvoid initBuffer(Shape& shape) {
 
 void initPlanets() {
     // 태양
+    // 태양 텍스처 매핑
     gSunTexture = LoadTextureWIC("texture/sun.jpg");
 
+    //태양 그리기
     centerSphere.createSphere(SUN_RADIUS);
     if (centerSphere.obj) {
         gluQuadricTexture(centerSphere.obj, GL_TRUE);
         gluQuadricNormals(centerSphere.obj, GLU_SMOOTH);
     }
 
+
+
     // 행성
+    // 행성 텍스처 매핑
+    for (int i = 0; i < PLANET_COUNT; ++i) {
+        if (gPlanets[i].textureFile && gPlanets[i].textureFile[0] != '\0') {
+            gPlanetTextures[i] = LoadTextureWIC(gPlanets[i].textureFile);
+        }
+    }
+
+    //행성 그리기
     for (int i = 0; i < PLANET_COUNT; i++) {
         // 궤도 생성
         orbits[i].createOrbit(gPlanets[i].orbitRadius, 120);
         initBuffer(orbits[i]);
 
-        // 구체 생성
+        // 구체 생성 (quadric 생성 후 텍스처 좌표 활성화)
         planetSpheres[i].createSphere(gPlanets[i].displayRadius);
+        if (planetSpheres[i].obj) {
+            gluQuadricTexture(planetSpheres[i].obj, GL_TRUE);   // 중요: 텍스처 좌표 생성 허용
+            gluQuadricNormals(planetSpheres[i].obj, GLU_SMOOTH);
+            gluQuadricDrawStyle(planetSpheres[i].obj, solid ? GLU_FILL : GLU_LINE);
+        }
+
         // 공전 행렬 배열
         gPlanetMatrix[i] = glm::mat4(1.0f);
     }
@@ -542,20 +557,37 @@ GLvoid drawScene() {
     }
     glPopMatrix();
 
-    // 행성들(텍스처 적용)
+    // 행성들(태양과 동일한 텍스처 처리 방식)
     for (int i = 0; i < PLANET_COUNT; i++) {
-
         float r = gPlanets[i].orbitRadius;
-
         glPushMatrix();
 
         // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
         // 궤도 반지름 만큼 x축으로 이동
-        glTranslatef(r, 0.0f, 0.0f); 
+        glTranslatef(r, 0.0f, 0.0f);
 
+        // 스타일 설정 (solid/line) 및 텍스처 바인드(태양과 동일)
+        if (solid) {
+            if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_FILL);
+            glEnable(GL_TEXTURE_2D);
+            if (gPlanetTextures[i]) glBindTexture(GL_TEXTURE_2D, gPlanetTextures[i]);
+        }
+        else {
+            if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_LINE);
+            glDisable(GL_TEXTURE_2D);
+        }
+
+        // 구 렌더
         if (planetSpheres[i].obj)
-            gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 20, 20);
+            gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 32, 32);
+
+        // 텍스처 정리
+        if (solid && gPlanetTextures[i]) {
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glDisable(GL_TEXTURE_2D);
+        }
+
         glPopMatrix();
     }
 
