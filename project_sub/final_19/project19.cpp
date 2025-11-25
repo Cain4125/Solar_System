@@ -519,14 +519,14 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         std::cout << "줌 아웃, gCameraZ = " << gCameraZ << std::endl;
         break;
     case ']':   // timeScale 증가
-        gTimeScale += 0.01f;
+        gTimeScale += 0.05f;
         if (gTimeScale > 5.0f) gTimeScale = 5.0f;   // 최대 5배속
         updateRevolutionSpeed();
         std::cout << "timeScale 증가: " << gTimeScale << std::endl;
         break;
 
     case '[':   // timeScale 감소
-        gTimeScale -= 0.01f;
+        gTimeScale -= 0.05f;
         if (gTimeScale < 0.001f) gTimeScale = 0.001f; // 0에 가까운 값으로 제한 (역행 방지)
         updateRevolutionSpeed();
         std::cout << "timeScale 감소: " << gTimeScale << std::endl;
