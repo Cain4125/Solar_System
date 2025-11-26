@@ -27,19 +27,20 @@ struct PlanetConfig {
     float orbitRadius;   // 궤도 반지름. orbitRadius ≈ 0.6 * sqrt(AU)
 	float orbitPeriodDays; // 공전 주기(일). 회전 속도는 Timer에서 변환: 하루당 회전각 = 360 / orbitPeriodDays, 프레임당 회전각 = (360 / orbitPeriodDays) * timeScale. 
                            // 실제 공전 비율을 정확히 유지하되, timeScale로 화면 프레임 속도에 맞게 보정
+    float rotationPeriodDays; // 자전 주기(일). 음수면 역자전
 	const char* textureFile;    // 텍스처 파일 경로
 };
 
-// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도), 텍스처 파일)
+// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도), 자전 주기, 텍스처 파일)
 PlanetConfig gPlanets[PLANET_COUNT] = {
-    { "Mercury", 0.034f, 0.375f,   87.97f, "texture/mercury.jpg" },
-    { "Venus",   0.049f, 0.509f,  224.70f, "texture/venus.jpg"},
-    { "Earth",   0.050f, 0.600f,  365.26f, "texture/earth_day.jpg"},
-    { "Mars",    0.039f, 0.740f,  686.98f, "texture/mars.jpg"},
-    { "Jupiter", 0.130f, 1.368f, 4332.59f,"texture/jupiter.jpg"},
-    { "Saturn",  0.121f, 1.849f,10759.22f,"texture/saturn.jpg"},
-    { "Uranus",  0.087f, 2.629f,30685.40f,"texture/uranus.jpg"},
-    { "Neptune", 0.086f, 3.286f,60189.00f,"texture/neptune.jpg"}
+    { "Mercury", 0.034f, 0.375f,   87.97f, 58.646f, "texture/mercury.jpg" },
+    { "Venus",   0.049f, 0.509f,  224.70f, -243.025f, "texture/venus.jpg"},
+    { "Earth",   0.050f, 0.600f,  365.26f, 0.99726968f, "texture/earth_day.jpg"},
+    { "Mars",    0.039f, 0.740f,  686.98f, 1.025957f, "texture/mars.jpg"},
+    { "Jupiter", 0.130f, 1.368f, 4332.59f, 0.41354f, "texture/jupiter.jpg"},
+    { "Saturn",  0.121f, 1.849f,10759.22f, 0.44401f, "texture/saturn.jpg"},
+    { "Uranus",  0.087f, 2.629f,30685.40f, -0.71833f, "texture/uranus.jpg"},
+    { "Neptune", 0.086f, 3.286f,60189.00f, 0.67125f, "texture/neptune.jpg"}
 };
 
 // 태양 크기 (화면 기준)
@@ -136,6 +137,12 @@ glm::mat4 gPlanetMatrix[PLANET_COUNT]; // 각 행성의 공전 행렬
 float gRevolutionSpeed[PLANET_COUNT]; // 프레임당 회전각도
 float gTimeScale = 0.05f;             // 전체 시간 배속에 활용할 변수
 float gCameraZ = -4.0f;                // 카메라 z 위치
+
+float gSelfRotationSpeed[PLANET_COUNT] = { 0.0f }; // 프레임당 자전 속도
+float gSelfAngle[PLANET_COUNT] = { 0.0f };         // 누적 자전 각도
+
+// 자전 전용 스케일
+float gSelfScale = 0.02f;
 
 
 bool solid = true, angle = false, z_rotate = false;
@@ -574,7 +581,11 @@ GLvoid drawScene() {
 
         // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
+
         glTranslatef(r, 0.0f, 0.0f);
+
+        // 자신의 자전 적용 (y축 기준)
+        glRotatef(gSelfAngle[i], 0.0f, 1.0f, 0.0f);
 
         // --- 행성(구) 렌더 ---
         if (solid) {
@@ -738,13 +749,30 @@ void TimerFunction(int value) {
                 glm::vec3(0.0f, 1.0f, 0.0f)) * gPlanetMatrix[i];
     }
 
+    // 자전
+    for (int i = 0; i < PLANET_COUNT; i++) {
+        float selfSpeed = gSelfRotationSpeed[i];
+        gSelfAngle[i] += selfSpeed;
+        if (gSelfAngle[i] >= 360.0f || gSelfAngle[i] <= -360.0f)
+            gSelfAngle[i] = fmodf(gSelfAngle[i], 360.0f);
+    }
+
     glutPostRedisplay();
     glutTimerFunc(16, TimerFunction, 0);
 }
 
 void updateRevolutionSpeed() {
     for (int i = 0; i < PLANET_COUNT; i++) {
+        // 공전 속도
         float dailyDeg = 360.0f / gPlanets[i].orbitPeriodDays;
         gRevolutionSpeed[i] = dailyDeg * gTimeScale;
+
+        // 자전 속도
+        if (gPlanets[i].rotationPeriodDays != 0.0f) {
+            float selfDailyDeg = 360.0f / gPlanets[i].rotationPeriodDays;
+            gSelfRotationSpeed[i] = selfDailyDeg * gTimeScale * gSelfScale;
+        } else {
+            gSelfRotationSpeed[i] = 0.0f;
+        }
     }
 }
