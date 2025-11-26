@@ -49,6 +49,10 @@ const float SUN_RADIUS = 0.327f;
 // 전역 텍스처 핸들 (0: Sun, 1..N: planets)
 GLuint gSunTexture = 0;
 GLuint gPlanetTextures[PLANET_COUNT] = { 0 };
+
+// Saturn ring 텍스처
+GLuint gSaturnRingTexture = 0;
+
 static GLuint LoadTextureWIC(const char* path);
 
 class Shape {
@@ -243,6 +247,9 @@ void initPlanets() {
         }
     }
 
+    // Saturn 링 텍스처 로드
+    gSaturnRingTexture = LoadTextureWIC("texture/saturn_ring.png");
+   
     //행성 그리기
     for (int i = 0; i < PLANET_COUNT; i++) {
         // 궤도 생성
@@ -432,6 +439,9 @@ static GLuint LoadTextureWIC(const char* path) {
     glGenerateMipmap(GL_TEXTURE_2D);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    //경계에서 특히 링 텍스처 반복되지 않도록 두 줄 추가
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     pConverter->Release();
@@ -557,35 +567,73 @@ GLvoid drawScene() {
     }
     glPopMatrix();
 
-    // 행성들(태양과 동일한 텍스처 처리 방식)
+    // 행성들(태양과 동일한 텍스처 처리 방식, 토성 링 추가 - 구 먼저, 링은 후처리)
     for (int i = 0; i < PLANET_COUNT; i++) {
         float r = gPlanets[i].orbitRadius;
         glPushMatrix();
 
         // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
-        // 궤도 반지름 만큼 x축으로 이동
         glTranslatef(r, 0.0f, 0.0f);
 
-        // 스타일 설정 (solid/line) 및 텍스처 바인드(태양과 동일)
+        // --- 행성(구) 렌더 ---
         if (solid) {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_FILL);
-            glEnable(GL_TEXTURE_2D);
-            if (gPlanetTextures[i]) glBindTexture(GL_TEXTURE_2D, gPlanetTextures[i]);
-        }
-        else {
+            if (gPlanetTextures[i]) {
+                glEnable(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, gPlanetTextures[i]);
+            } else {
+                glDisable(GL_TEXTURE_2D);
+            }
+        } else {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_LINE);
             glDisable(GL_TEXTURE_2D);
         }
 
-        // 구 렌더
         if (planetSpheres[i].obj)
             gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 32, 32);
 
-        // 텍스처 정리
+        // 행성 텍스처 정리
         if (solid && gPlanetTextures[i]) {
             glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
+        }
+
+        // --- 토성 링 그리는 if문 ---
+        if (i == 5 && gSaturnRingTexture) {
+            // 링 크기: inner/outer 배율로 조정
+            float inner = planetSpheres[i].size * 1.2f;
+            float outer = planetSpheres[i].size * 1.5f;
+            const int segs = 96;
+
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            glDepthMask(GL_FALSE);
+
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, gSaturnRingTexture);
+
+            // 아주 작은 높이 (planet 중심에서 약간 위)
+            const float yOffset = 0.002f;
+
+            glBegin(GL_TRIANGLE_STRIP);
+            for (int s = 0; s <= segs; ++s) {
+                float a = 2.0f * M_PI * s / segs;
+                float cosA = cosf(a), sinA = sinf(a);
+                glTexCoord2f((float)s / segs, 0.0f);
+                glVertex3f(cosA * outer, yOffset, sinA * outer);
+                glTexCoord2f((float)s / segs, 1.0f);
+                glVertex3f(cosA * inner, yOffset, sinA * inner);
+            }
+            glEnd();
+
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glDisable(GL_TEXTURE_2D);
+
+            // 복원
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
         }
 
         glPopMatrix();
