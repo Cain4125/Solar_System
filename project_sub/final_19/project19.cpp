@@ -28,19 +28,20 @@ struct PlanetConfig {
 	float orbitPeriodDays; // 공전 주기(일). 회전 속도는 Timer에서 변환: 하루당 회전각 = 360 / orbitPeriodDays, 프레임당 회전각 = (360 / orbitPeriodDays) * timeScale. 
                            // 실제 공전 비율을 정확히 유지하되, timeScale로 화면 프레임 속도에 맞게 보정
     float rotationPeriodDays; // 자전 주기(일). 음수면 역자전
+    float axialTilt;          // 자전축 기울기(도)
 	const char* textureFile;    // 텍스처 파일 경로
 };
 
-// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도), 자전 주기, 텍스처 파일)
+// 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도), 자전 주기, 자전축(기울기정도) 텍스처 파일)
 PlanetConfig gPlanets[PLANET_COUNT] = {
-    { "Mercury", 0.034f, 0.375f,   87.97f, 58.646f, "texture/mercury.jpg" },
-    { "Venus",   0.049f, 0.509f,  224.70f, -243.025f, "texture/venus.jpg"},
-    { "Earth",   0.050f, 0.600f,  365.26f, 0.99726968f, "texture/earth_day.jpg"},
-    { "Mars",    0.039f, 0.740f,  686.98f, 1.025957f, "texture/mars.jpg"},
-    { "Jupiter", 0.130f, 1.368f, 4332.59f, 0.41354f, "texture/jupiter.jpg"},
-    { "Saturn",  0.121f, 1.849f,10759.22f, 0.44401f, "texture/saturn.jpg"},
-    { "Uranus",  0.087f, 2.629f,30685.40f, -0.71833f, "texture/uranus.jpg"},
-    { "Neptune", 0.086f, 3.286f,60189.00f, 0.67125f, "texture/neptune.jpg"}
+    { "Mercury", 0.034f, 0.375f,   87.97f,  58.646f,   0.034f,  "texture/mercury.jpg" },
+    { "Venus",   0.049f, 0.509f,  224.70f, -243.025f, 177.36f,  "texture/venus.jpg"   },
+    { "Earth",   0.050f, 0.600f,  365.26f,  0.99726968f, 23.44f,  "texture/earth_day.jpg"},
+    { "Mars",    0.039f, 0.740f,  686.98f,  1.025957f,  25.19f,  "texture/mars.jpg"    },
+    { "Jupiter", 0.130f, 1.368f, 4332.59f,  0.41354f,    3.13f,   "texture/jupiter.jpg" },
+    { "Saturn",  0.121f, 1.849f,10759.22f,  0.44401f,   26.73f,   "texture/saturn.jpg"  },
+    { "Uranus",  0.087f, 2.629f,30685.40f, -0.71833f,   97.77f,   "texture/uranus.jpg"  },
+    { "Neptune", 0.086f, 3.286f,60189.00f,  0.67125f,   28.32f,   "texture/neptune.jpg" }
 };
 
 // 태양 크기 (화면 기준)
@@ -143,7 +144,6 @@ float gSelfAngle[PLANET_COUNT] = { 0.0f };         // 누적 자전 각도
 
 // 자전 전용 스케일
 float gSelfScale = 0.02f;
-
 
 bool solid = true, angle = false, z_rotate = false;
 bool isGlobalAnimating = false;
@@ -574,20 +574,37 @@ GLvoid drawScene() {
     }
     glPopMatrix();
 
-    // 행성들(태양과 동일한 텍스처 처리 방식, 토성 링 추가 - 구 먼저, 링은 후처리)
+    // 행성들
     for (int i = 0; i < PLANET_COUNT; i++) {
         float r = gPlanets[i].orbitRadius;
         glPushMatrix();
 
         // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
-
+        
         glTranslatef(r, 0.0f, 0.0f);
 
-        // 자신의 자전 적용 (y축 기준)
-        glRotatef(gSelfAngle[i], 0.0f, 1.0f, 0.0f);
+        // 축선 그리기 
+        glPushMatrix();
+        glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f); // Z축 회전으로 Y축(자전축)을 기울임
+        float axisLen = planetSpheres[i].size * 1.5f;
+        glDisable(GL_TEXTURE_2D);
+        glLineWidth(2.0f);
+        glColor3f(0.5f, 0.5f, 0.5f); // 회색 축선
+        glBegin(GL_LINES);
+        glVertex3f(0.0f, -axisLen, 0.0f);
+        glVertex3f(0.0f,  axisLen, 0.0f);
+        glEnd();
+        // 복원 색상
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glPopMatrix();
 
-        // --- 행성(구) 렌더 ---
+        //자전 적용
+        glPushMatrix();
+        glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);      // 자전축 기울기
+        glRotatef(gSelfAngle[i], 0.0f, 1.0f, 0.0f);      // 기울어진 축 기준 회전
+
+        //행성 렌더
         if (solid) {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_FILL);
             if (gPlanetTextures[i]) {
@@ -609,6 +626,7 @@ GLvoid drawScene() {
             glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
         }
+        glPopMatrix();
 
         // --- 토성 링 그리는 if문 ---
         if (i == 5 && gSaturnRingTexture) {
@@ -621,6 +639,9 @@ GLvoid drawScene() {
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             glDepthMask(GL_FALSE);
+
+            glPushMatrix();
+            glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);
 
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, gSaturnRingTexture);
@@ -641,6 +662,7 @@ GLvoid drawScene() {
 
             glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
+            glPopMatrix();
 
             // 복원
             glDepthMask(GL_TRUE);
