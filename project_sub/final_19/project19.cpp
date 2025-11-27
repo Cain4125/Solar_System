@@ -145,6 +145,12 @@ float gSelfAngle[PLANET_COUNT] = { 0.0f };         // 누적 자전 각도
 // 자전 전용 스케일
 float gSelfScale = 0.02f;
 
+// 태양 자전 관련 (평균값 사용)
+float gSunRotationPeriodDays = 25.38f; // 태양 평균 자전 주기(일)
+float gSunSelfSpeed = 0.0f;            // 프레임당 도 (계산해서 사용)
+float gSunAngle = 0.0f;                // 누적 자전 각도(도)
+float gSunAxialTilt = 7.25f;           // 태양 축 기울기 (도)
+
 bool solid = true, angle = false, z_rotate = false;
 bool isGlobalAnimating = false;
 float scale = 1.0f, zangle = 1.0f;
@@ -558,6 +564,11 @@ GLvoid drawScene() {
     // 중심 구 렌더링 - 태양 (텍스처)
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
+
+    // 태양 축 기울기
+    glRotatef(gSunAxialTilt, 0.0f, 0.0f, 1.0f); // 축 기울기
+    glRotatef(gSunAngle, 0.0f, 1.0f, 0.0f);     // 자전
+
     if (solid) {
         if (centerSphere.obj) gluQuadricDrawStyle(centerSphere.obj, GLU_FILL);
         glEnable(GL_TEXTURE_2D);
@@ -779,6 +790,11 @@ void TimerFunction(int value) {
             gSelfAngle[i] = fmodf(gSelfAngle[i], 360.0f);
     }
 
+    // 태양 자전
+    gSunAngle += gSunSelfSpeed;
+    if (gSunAngle >= 360.0f || gSunAngle <= -360.0f)
+        gSunAngle = fmodf(gSunAngle, 360.0f);
+
     glutPostRedisplay();
     glutTimerFunc(16, TimerFunction, 0);
 }
@@ -796,5 +812,13 @@ void updateRevolutionSpeed() {
         } else {
             gSelfRotationSpeed[i] = 0.0f;
         }
+    }
+
+    // 태양 자전 속도 계산
+    if (gSunRotationPeriodDays != 0.0f) {
+        float sunDailyDeg = 360.0f / gSunRotationPeriodDays;
+        gSunSelfSpeed = sunDailyDeg * gTimeScale * gSelfScale;
+    } else {
+        gSunSelfSpeed = 0.0f;
     }
 }
