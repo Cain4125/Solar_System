@@ -162,6 +162,17 @@ GLuint shaderProgramID;
 GLuint vertexShader;
 GLuint fragmentShader;
 
+// 달 관련
+Shape  moonSphere;
+GLuint gMoonTexture = 0;
+
+float  gMoonOrbitRadius = 0.10f;    
+float  gMoonRadius = 0.015f;   
+float  gMoonOrbitSpeed = 0.0f;    
+float  gMoonSelfSpeed = 0.0f;     
+float  gMoonOrbitAngle = 0.0f;     
+float  gMoonSelfAngle = 0.0f;   
+
 // 함수 선언
 void make_vertexShaders();
 void make_fragmentShaders();
@@ -280,6 +291,14 @@ void initPlanets() {
 
         // 공전 행렬 배열
         gPlanetMatrix[i] = glm::mat4(1.0f);
+    }
+    gMoonTexture = LoadTextureWIC("texture/moon.jpg");
+
+    moonSphere.createSphere(gMoonRadius);
+    if (moonSphere.obj) {
+        gluQuadricTexture(moonSphere.obj, GL_TRUE);
+        gluQuadricNormals(moonSphere.obj, GLU_SMOOTH);
+        gluQuadricDrawStyle(moonSphere.obj, solid ? GLU_FILL : GLU_LINE);
     }
 }
 
@@ -681,6 +700,42 @@ GLvoid drawScene() {
             glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
         }
+        // 달
+        if (i == 2 && moonSphere.obj) {  // Earth 인덱스 = 2
+            glPushMatrix();
+
+            // 지구 기준 공전
+            glRotatef(gMoonOrbitAngle, 0.0f, 1.0f, 0.0f);
+            glTranslatef(gMoonOrbitRadius, 0.0f, 0.0f);
+
+            // 자전
+            glRotatef(gMoonSelfAngle, 0.0f, 1.0f, 0.0f);
+
+            if (solid) {
+                gluQuadricDrawStyle(moonSphere.obj, GLU_FILL);
+                if (gMoonTexture) {
+                    glEnable(GL_TEXTURE_2D);
+                    glBindTexture(GL_TEXTURE_2D, gMoonTexture);
+                }
+                else {
+                    glDisable(GL_TEXTURE_2D);
+                }
+            }
+            else {
+                gluQuadricDrawStyle(moonSphere.obj, GLU_LINE);
+                glDisable(GL_TEXTURE_2D);
+            }
+
+            gluSphere(moonSphere.obj, moonSphere.size, 24, 24);
+
+            if (solid && gMoonTexture) {
+                glBindTexture(GL_TEXTURE_2D, 0);
+                glDisable(GL_TEXTURE_2D);
+            }
+
+            glPopMatrix();
+        }
+
         glPopMatrix();
 
         // --- 토성 링 그리는 if문 ---
@@ -839,6 +894,14 @@ void TimerFunction(int value) {
     if (gSunAngle >= 360.0f || gSunAngle <= -360.0f)
         gSunAngle = fmodf(gSunAngle, 360.0f);
 
+    gMoonOrbitAngle += gMoonOrbitSpeed;
+    if (gMoonOrbitAngle >= 360.0f || gMoonOrbitAngle <= -360.0f)
+        gMoonOrbitAngle = fmodf(gMoonOrbitAngle, 360.0f);
+
+    gMoonSelfAngle += gMoonSelfSpeed;
+    if (gMoonSelfAngle >= 360.0f || gMoonSelfAngle <= -360.0f)
+        gMoonSelfAngle = fmodf(gMoonSelfAngle, 360.0f);
+
     glutPostRedisplay();
     glutTimerFunc(16, TimerFunction, 0);
 }
@@ -865,4 +928,9 @@ void updateRevolutionSpeed() {
     } else {
         gSunSelfSpeed = 0.0f;
     }
+
+    const float moonOrbitPeriodDays = 27.32f; 
+    float moonDailyDeg = 360.0f / moonOrbitPeriodDays;
+    gMoonOrbitSpeed = moonDailyDeg * gTimeScale;          
+    gMoonSelfSpeed = moonDailyDeg * gTimeScale * gSelfScale; 
 }
