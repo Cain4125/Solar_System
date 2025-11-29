@@ -312,7 +312,7 @@ void main(int argc, char** argv) {
 
     // 태양광 색상
     GLfloat lightDiffuse[] = { 1.0f, 1.0f, 0.9f, 1.0f };
-    GLfloat lightAmbient[] = { 0.15f, 0.15f, 0.15f, 1.0f };
+    GLfloat lightAmbient[] = { 0.12f, 0.12f, 0.12f, 1.0f };
     GLfloat lightSpecular[] = { 1.0f, 1.0f, 0.9f, 1.0f };
     glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
     glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
@@ -576,6 +576,8 @@ GLvoid drawScene() {
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
     GLfloat lightPos[] = { 0.0f, 0.0f, 0.0f, 1.0f };   // 점광원
     glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
+
+    glPopMatrix();
 
     // 스타일 설정
     if (solid) {
