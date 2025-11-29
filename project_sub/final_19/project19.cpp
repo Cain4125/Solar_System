@@ -312,15 +312,15 @@ void main(int argc, char** argv) {
 
     // 태양광 색상
     GLfloat lightDiffuse[] = { 1.0f, 1.0f, 0.9f, 1.0f };
-    GLfloat lightAmbient[] = { 0.08f, 0.08f, 0.08f, 1.0f };
+    GLfloat lightAmbient[] = { 0.15f, 0.15f, 0.15f, 1.0f };
     GLfloat lightSpecular[] = { 1.0f, 1.0f, 0.9f, 1.0f };
     glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
     glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
     glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
 
     // 거리 감쇠 설정
-    glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.8f);   // 기본 밝기
-    glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.10f);  // 거리 1당 감소
+    glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.0f);   // 기본 밝기
+    glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.03f);  // 거리 1당 감소
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.05f);  // 거리^2에 비례 감소
 
     make_shaderProgram();
