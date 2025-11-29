@@ -579,6 +579,13 @@ GLvoid drawScene() {
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
 
+    // 자체발광 (노란색)
+    GLfloat sunEmission[] = { 1.0f, 0.9f, 0.4f, 1.0f };
+    GLfloat noEmission[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+    glMaterialfv(GL_FRONT, GL_EMISSION, sunEmission);
+    glColor3f(1.0f, 1.0f, 1.0f);  
+
     // 태양 축 기울기
     glRotatef(gSunAxialTilt, 0.0f, 0.0f, 1.0f); // 축 기울기
     glRotatef(gSunAngle, 0.0f, 1.0f, 0.0f);     // 자전
@@ -597,6 +604,9 @@ GLvoid drawScene() {
         glBindTexture(GL_TEXTURE_2D, 0);
         glDisable(GL_TEXTURE_2D);
     }
+
+    // 자체발광이 다른 객체들에게 영향 안끼치게
+    glMaterialfv(GL_FRONT, GL_EMISSION, noEmission);
     glPopMatrix();
 
     // 행성들
