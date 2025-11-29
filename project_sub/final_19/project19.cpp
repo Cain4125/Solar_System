@@ -571,7 +571,9 @@ GLvoid drawScene() {
     // baseRotation 적용
     glMultMatrixf(glm::value_ptr(baseRotation));
 
-    // 월드 원점 위치를 광원으로 설정
+    // 태양 위치를 광원으로 설정
+    glPushMatrix();
+    glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
     GLfloat lightPos[] = { 0.0f, 0.0f, 0.0f, 1.0f };   // 점광원
     glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
 
