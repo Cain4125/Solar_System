@@ -299,6 +299,16 @@ void main(int argc, char** argv) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
 
+    // 조명 시스템 기본 설정
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);        // 스케일/회전해도 normal 자동 보정
+    glShadeModel(GL_SMOOTH);
+
+    // glColor로 diffuse/ambient를 같이 조정할 거면
+    glEnable(GL_COLOR_MATERIAL);
+    glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
     make_shaderProgram();
 
     createAxis(axis); // 축 생성
@@ -546,6 +556,10 @@ GLvoid drawScene() {
 
     // baseRotation 적용
     glMultMatrixf(glm::value_ptr(baseRotation));
+
+    // 월드 원점 위치를 광원으로 설정
+    GLfloat lightPos[] = { 0.0f, 0.0f, 0.0f, 1.0f };   // 점광원
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
 
     // 스타일 설정
     if (solid) {
