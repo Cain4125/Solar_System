@@ -32,6 +32,7 @@ struct PlanetConfig {
 	const char* textureFile;    // 텍스처 파일 경로
 };
 
+
 // 실제 비율을 압축한 값들 (행성 이름, 반지름, 공전 궤도, 공전 주기(속도), 자전 주기, 자전축(기울기정도) 텍스처 파일)
 PlanetConfig gPlanets[PLANET_COUNT] = {
     { "Mercury", 0.034f, 0.375f,   87.97f,  58.646f,   0.034f,  "texture/mercury.jpg" },
@@ -302,12 +303,25 @@ void main(int argc, char** argv) {
     // 조명 시스템 기본 설정
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
-    glEnable(GL_NORMALIZE);        // 스케일/회전해도 normal 자동 보정
+    glEnable(GL_NORMALIZE);        // 스케일,회전해도 normal 자동 보정
     glShadeModel(GL_SMOOTH);
 
     // glColor로 diffuse/ambient를 같이 조정할 거면
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+
+    // 태양광 색상
+    GLfloat lightDiffuse[] = { 1.0f, 1.0f, 0.9f, 1.0f };
+    GLfloat lightAmbient[] = { 0.08f, 0.08f, 0.08f, 1.0f };
+    GLfloat lightSpecular[] = { 1.0f, 1.0f, 0.9f, 1.0f };
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDiffuse);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmbient);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpecular);
+
+    // 거리 감쇠 설정
+    glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.8f);   // 기본 밝기
+    glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.10f);  // 거리 1당 감소
+    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.05f);  // 거리^2에 비례 감소
 
     make_shaderProgram();
 
@@ -618,6 +632,8 @@ GLvoid drawScene() {
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
         
         glTranslatef(r, 0.0f, 0.0f);
+
+
 
         // 축선 그리기 
         glPushMatrix();
