@@ -178,6 +178,11 @@ float  gMoonSelfSpeed = 0.0f;
 float  gMoonOrbitAngle = 0.0f;     
 float  gMoonSelfAngle = 0.0f;   
 
+// 지구 시점 토글 및 오프셋 (전역)
+bool gFollowEarth = false;                   // true면 지구 시점
+float gEarthCamOffsetY = 0.15f;              // 지구 위(상향) 오프셋
+float gEarthCamOffsetZ = 0.6f;               // 지구 뒤(카메라 거리)
+
 // 함수 선언
 void make_vertexShaders();
 void make_fragmentShaders();
@@ -979,6 +984,11 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         std::cout << "ESC 키로 프로그램 종료" << std::endl;
         exit(0);
         break;
+    case 'e':
+    case 'E':
+        gFollowEarth = !gFollowEarth;
+        std::cout << "지구 시점 " << (gFollowEarth ? "활성화" : "비활성화") << std::endl;
+        break;
     default:
         std::cout << "알 수 없는 키 입력" << std::endl;
         break;
@@ -1052,6 +1062,7 @@ void updateRevolutionSpeed() {
     gMoonSelfSpeed = moonDailyDeg * gTimeScale * gSelfScale; 
 }
 
+//main이 너무 길어져 코드 분리했습니다.
 void CreateMatrix() {
  big_Matrix = glm::mat4(1.0f);
  glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f,0.0f,0.0f));
@@ -1068,11 +1079,12 @@ void CreateMatrix() {
 }
 
 void menu() {
- std::cout << "=== Solar System Simulation (18 Style) ===" << std::endl;
+ std::cout << "=== Solar System Simulation ===" << std::endl;
  std::cout << "p: 직각투영 / 원근투영" << std::endl;
  std::cout << "m: 솔리드 / 와이어" << std::endl;
  std::cout << "w/a/s/d: 상하좌우 이동" << std::endl;
  std::cout << "+/-: 카메라 줌인/줌아웃" << std::endl;
  std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
+ std::cout << "e: 지구 시점" << std::endl;
  std::cout << "q: 종료" << std::endl;
 }
