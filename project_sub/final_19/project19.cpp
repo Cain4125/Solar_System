@@ -57,13 +57,12 @@ GLuint gPlanetTextures[PLANET_COUNT] = { 0 };
 GLuint gSaturnRingTexture = 0;
 
 // 팝업 텍스처 & 마우스 상태
-GLuint gPopupTextures[PLANET_COUNT +1] = {0 }; //0..PLANET_COUNT-1: 행성, PLANET_COUNT: 태양
+GLuint gPopupTextures[PLANET_COUNT + 1] = { 0 }; // 0..PLANET_COUNT-1: 행성, PLANET_COUNT: 태양
 int gHoveredPlanet = -1; // -1: none, PLANET_COUNT = Sun
 int gMouseX =0, gMouseY =0;
 
 static GLuint LoadTextureWIC(const char* path);
 
-// 행성 클래스
 class Shape {
 public:
     std::vector<float> vertices;
@@ -276,7 +275,7 @@ void initPlanets() {
 
     // 행성
     // 행성 텍스처 매핑
-    for (int i =0; i < PLANET_COUNT; ++i) {
+    for (int i = 0; i < PLANET_COUNT; ++i) {
         if (gPlanets[i].textureFile && gPlanets[i].textureFile[0] != '\0') {
             gPlanetTextures[i] = LoadTextureWIC(gPlanets[i].textureFile);
         }
@@ -284,17 +283,17 @@ void initPlanets() {
 
     // Saturn 링 텍스처 로드
     gSaturnRingTexture = LoadTextureWIC("texture/saturn_ring.png");
- 
+   
     //행성 그리기
-    for (int i =0; i < PLANET_COUNT; i++) {
+    for (int i = 0; i < PLANET_COUNT; i++) {
         // 궤도 생성
-        orbits[i].createOrbit(gPlanets[i].orbitRadius,120);
+        orbits[i].createOrbit(gPlanets[i].orbitRadius, 120);
         initBuffer(orbits[i]);
 
         // 구체 생성 (quadric 생성 후 텍스처 좌표 활성화)
         planetSpheres[i].createSphere(gPlanets[i].displayRadius);
         if (planetSpheres[i].obj) {
-            gluQuadricTexture(planetSpheres[i].obj, GL_TRUE); // 중요: 텍스처 좌표 생성 허용
+            gluQuadricTexture(planetSpheres[i].obj, GL_TRUE);   // 중요: 텍스처 좌표 생성 허용
             gluQuadricNormals(planetSpheres[i].obj, GLU_SMOOTH);
             gluQuadricDrawStyle(planetSpheres[i].obj, solid ? GLU_FILL : GLU_LINE);
         }
@@ -319,7 +318,7 @@ void initPlanets() {
         gPopupTextures[i] = LoadTextureWIC(path.c_str());
         if (!gPopupTextures[i]) {
             std::cerr << "Popup texture not found: " << path << std::endl;
-        }
+}
     }
     // 태양 팝업
     gPopupTextures[PLANET_COUNT] = LoadTextureWIC("Popup/SUN.png");
@@ -442,8 +441,8 @@ void onMouseMove(int x, int y) {
  float dx = (float)x - screen.x;
  float dy = (float)mouseYGL - screen.y;
  if (sqrtf(dx*dx + dy*dy) <= pixelRadius +4.0f) { picked = i; break; }
- }
- }
+    }
+}
 
  gHoveredPlanet = picked;
  glutPostRedisplay();
@@ -798,11 +797,11 @@ GLvoid drawScene() {
         glPopMatrix();
 
         // --- 토성 링 그리는 if문 ---
-        if (i ==5 && gSaturnRingTexture) {
+        if (i == 5 && gSaturnRingTexture) {
             // 링 크기: inner/outer 배율로 조정
-            float inner = planetSpheres[i].size *1.2f;
-            float outer = planetSpheres[i].size *1.5f;
-            const int segs =96;
+            float inner = planetSpheres[i].size * 1.2f;
+            float outer = planetSpheres[i].size * 1.5f;
+            const int segs = 96;
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -810,26 +809,26 @@ GLvoid drawScene() {
             glDepthMask(GL_FALSE);
 
             glPushMatrix();
-            glRotatef(gPlanets[i].axialTilt,0.0f,0.0f,1.0f);
+            glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);
 
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, gSaturnRingTexture);
 
             // 아주 작은 높이 (planet 중심에서 약간 위)
-            const float yOffset =0.002f;
+            const float yOffset = 0.002f;
 
             glBegin(GL_TRIANGLE_STRIP);
-            for (int s =0; s <= segs; ++s) {
-                float a =2.0f * M_PI * s / segs;
+            for (int s = 0; s <= segs; ++s) {
+                float a = 2.0f * M_PI * s / segs;
                 float cosA = cosf(a), sinA = sinf(a);
-                glTexCoord2f((float)s / segs,0.0f);
+                glTexCoord2f((float)s / segs, 0.0f);
                 glVertex3f(cosA * outer, yOffset, sinA * outer);
-                glTexCoord2f((float)s / segs,1.0f);
+                glTexCoord2f((float)s / segs, 1.0f);
                 glVertex3f(cosA * inner, yOffset, sinA * inner);
             }
             glEnd();
 
-            glBindTexture(GL_TEXTURE_2D,0);
+            glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
             glPopMatrix();
 
@@ -841,45 +840,57 @@ GLvoid drawScene() {
         glPopMatrix();
     }
 
-    // --- Popup overlay: show texture at top-left when hovering ---
-    if (gHoveredPlanet >=0) {
+    // --- Popup overlay: show texture at top-right when hovering ---
+    if (gHoveredPlanet >= 0) {
         int idx = gHoveredPlanet;
-        if (idx >=0 && idx <= PLANET_COUNT && gPopupTextures[idx]) {
-            const int pad =10;
-            const int boxW =160;
-            const int boxH =160;
-            int px = pad;
-            int py = height - boxH - pad;
+        if (idx >= 0 && idx <= PLANET_COUNT && gPopupTextures[idx]) {
+            // exact1/2 size, flush to top-right
+            int boxW = width / 2;
+            int boxH = height / 2;
+            if (boxW > width) boxW = width;
+            if (boxH > height) boxH = height;
+
+            int px = width - boxW; // flush right
+            int py = height - boxH; // flush top
 
             // setup ortho
             glMatrixMode(GL_PROJECTION);
             glPushMatrix();
             glLoadIdentity();
-            glOrtho(0, width,0, height, -1,1);
+            glOrtho(0, width, 0, height, -1, 1);
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
 
-            glDisable(GL_DEPTH_TEST);
+            // save and disable states so overlay not affected by scene lighting/depth
+            GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+            if (depthWasEnabled) glDisable(GL_DEPTH_TEST);
+            GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+            if (lightingWasEnabled) glDisable(GL_LIGHTING);
+
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, gPopupTextures[idx]);
 
-            glColor4f(1.0f,1.0f,1.0f,1.0f);
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
             glBegin(GL_TRIANGLE_STRIP);
-            glTexCoord2f(0.0f,0.0f); glVertex2i(px, py);
-            glTexCoord2f(1.0f,0.0f); glVertex2i(px + boxW, py);
-            glTexCoord2f(0.0f,1.0f); glVertex2i(px, py + boxH);
-            glTexCoord2f(1.0f,1.0f); glVertex2i(px + boxW, py + boxH);
+            // Flip V coordinate because WIC textures are top-left origin
+            glTexCoord2f(0.0f, 1.0f); glVertex2i(px, py);
+            glTexCoord2f(1.0f, 1.0f); glVertex2i(px + boxW, py);
+            glTexCoord2f(0.0f, 0.0f); glVertex2i(px, py + boxH);
+            glTexCoord2f(1.0f, 0.0f); glVertex2i(px + boxW, py + boxH);
             glEnd();
 
-            glBindTexture(GL_TEXTURE_2D,0);
+            glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
 
             glDisable(GL_BLEND);
-            glEnable(GL_DEPTH_TEST);
+
+            // restore lighting and depth test
+            if (lightingWasEnabled) glEnable(GL_LIGHTING);
+            if (depthWasEnabled) glEnable(GL_DEPTH_TEST);
 
             glPopMatrix();
             glMatrixMode(GL_PROJECTION);
@@ -1039,4 +1050,29 @@ void updateRevolutionSpeed() {
     float moonDailyDeg = 360.0f / moonOrbitPeriodDays;
     gMoonOrbitSpeed = moonDailyDeg * gTimeScale;          
     gMoonSelfSpeed = moonDailyDeg * gTimeScale * gSelfScale; 
+}
+
+void CreateMatrix() {
+ big_Matrix = glm::mat4(1.0f);
+ glm::mat4 transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.5f,0.0f,0.0f));
+ glm::mat4 s_transmat = glm::translate(glm::mat4(1.0f), glm::vec3(0.2f,0.0f,0.0f));
+
+ smat[0] = glm::mat4(1.0f);
+ smat[1] = glm::rotate(glm::mat4(1.0f), glm::radians(45.0f), glm::vec3(0.0f,0.0f,1.0f));
+ smat[2] = glm::rotate(glm::mat4(1.0f), glm::radians(-45.0f), glm::vec3(0.0f,0.0f,1.0f));
+
+ for (int i =0; i <3; i++) {
+ Matrix[i] = transmat;
+ s_Matrix[i] = s_transmat;
+ }
+}
+
+void menu() {
+ std::cout << "=== Solar System Simulation (18 Style) ===" << std::endl;
+ std::cout << "p: 직각투영 / 원근투영" << std::endl;
+ std::cout << "m: 솔리드 / 와이어" << std::endl;
+ std::cout << "w/a/s/d: 상하좌우 이동" << std::endl;
+ std::cout << "+/-: 카메라 줌인/줌아웃" << std::endl;
+ std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
+ std::cout << "q: 종료" << std::endl;
 }
