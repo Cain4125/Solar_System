@@ -604,6 +604,7 @@ GLvoid drawScene() {
     glm::mat4 view = glm::mat4(1.0f);
     glm::mat4 projection = glm::mat4(1.0f);
 
+    // e 키를 위한 setup
     view = glm::translate(view, glm::vec3(0.0f, 0.0f, gCameraZ));
     if (angle) {
         projection = glm::ortho(-2.0f, 2.0f, -2.0f, 2.0f, -10.0f, 10.0f);
@@ -612,28 +613,76 @@ GLvoid drawScene() {
         projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
     }
 
+
     glm::mat4 baseRotation = glm::mat4(1.0f);
     baseRotation = glm::rotate(baseRotation, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
     baseRotation = glm::rotate(baseRotation, glm::radians(50.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 
     unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "Matrix");
 
+    // 모델뷰(카메라) 계산 (use glm view matrix for shader and fixed-function)
+    glm::mat4 viewMat;
+    if (gFollowEarth) {
+        const int E = 2; // Earth index
+        float rEarth = gPlanets[E].orbitRadius;
+
+        // planetModel: full local->world for the planet (includes scene transforms)
+        glm::mat4 planetModel = movemat * big_Matrix * gPlanetMatrix[E];
+        // translate to planet position along its orbit
+        planetModel = planetModel * glm::translate(glm::mat4(1.0f), glm::vec3(rEarth, 0.0f, 0.0f));
+        // apply axial tilt (rotate around local Z as in rendering code)
+        planetModel = planetModel * glm::rotate(glm::mat4(1.0f), glm::radians(gPlanets[E].axialTilt), glm::vec3(0.0f, 0.0f, 1.0f));
+        // apply self rotation (around local Y)
+        planetModel = planetModel * glm::rotate(glm::mat4(1.0f), glm::radians(gSelfAngle[E]), glm::vec3(0.0f, 1.0f, 0.0f));
+
+        // Eye: a point on the planet surface in local +X direction (same as surface used to render)
+        glm::vec3 localSurfacePos(planetSpheres[E].size, 0.0f, 0.0f);
+        glm::vec3 eyeWorld = glm::vec3(planetModel * glm::vec4(localSurfacePos, 1.0f));
+
+        // Compute outward direction in world space using local +X (direction away from planet center)
+        glm::vec3 localOut(1.0f, 0.0f, 0.0f);
+        glm::vec3 outward = glm::normalize(glm::vec3(planetModel * glm::vec4(localOut, 0.0f)));
+        if (glm::length(outward) < 1e-6f) outward = glm::vec3(0.0f, 0.0f, 1.0f);
+
+        // Look target: a point far in the outward direction from the surface point (so camera looks out to space)
+        const float lookDist = 20.0f;
+        glm::vec3 center = eyeWorld + outward * lookDist;
+
+        // Up vector: transform local +Y by planet orientation (no translation)
+        glm::vec3 upWorld = glm::normalize(glm::vec3(planetModel * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f)));
+        if (glm::length(upWorld) < 1e-6f) upWorld = glm::vec3(0.0f, 1.0f, 0.0f);
+
+        // Build view matrix (camera fixed to rotating Earth surface, looking outward)
+        viewMat = glm::lookAt(eyeWorld, center, upWorld);
+    }
+    else {
+        // global camera: only translate in Z here; baseRotation applied separately
+        viewMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, gCameraZ));
+    }
+
     // 축 그리기 (18.cpp와 동일)
-    glm::mat4 axisMatrix = projection * view * baseRotation;
+    glm::mat4 axisMatrix;
+    if (gFollowEarth)
+        axisMatrix = projection * viewMat;
+    else
+        axisMatrix = projection * viewMat * baseRotation;
     glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(axisMatrix));
     glBindVertexArray(axis.VAO);
     glDrawElements(GL_LINES, axis.index.size(), GL_UNSIGNED_INT, 0);
 
     // 궤도 그리기
     for (int i = 0; i < PLANET_COUNT; i++) {
-        glm::mat4 orbitMatrix = projection * view * baseRotation;
+        glm::mat4 orbitMatrix;
+        if (gFollowEarth)
+            orbitMatrix = projection * viewMat;
+        else
+            orbitMatrix = projection * viewMat * baseRotation;
         glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(orbitMatrix));
         glBindVertexArray(orbits[i].VAO);
         glDrawElements(GL_LINE_LOOP, orbits[i].index.size(), GL_UNSIGNED_INT, 0);
     }
 
-
-    // GLU 객체들 렌더링 (18.cpp와 동일한 방식)
+    // --- switch to fixed-function for GLU drawing ---
     glUseProgram(0);
 
     // 투영 설정
@@ -646,17 +695,23 @@ GLvoid drawScene() {
         gluPerspective(45.0, (double)width / (double)height, 0.1, 100.0);
     }
 
+    // 모델뷰(Fixed-function) 설정: apply same view as used by shader
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, gCameraZ);
-
-    // baseRotation 적용
-    glMultMatrixf(glm::value_ptr(baseRotation));
+    if (gFollowEarth) {
+        // load view matrix computed by glm (convert to column-major)
+        glLoadMatrixf(glm::value_ptr(viewMat));
+    }
+    else {
+        // global camera: translate + baseRotation
+        glTranslatef(0.0f, 0.0f, gCameraZ);
+        glMultMatrixf(glm::value_ptr(baseRotation));
+    }
 
     // 태양 위치를 광원으로 설정
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
-    GLfloat lightPos[] = { 0.0f, 0.0f, 0.0f, 1.0f };   // 점광원
+    GLfloat lightPos[] = { 0.0f,0.0f,0.0f,1.0f }; // 점광원
     glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
 
     glPopMatrix();
@@ -674,7 +729,7 @@ GLvoid drawScene() {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_LINE);
         }
     }
-    
+
     // 중심 구 렌더링 - 태양 (텍스처)
     glPushMatrix();
     glMultMatrixf(glm::value_ptr(movemat * big_Matrix));
@@ -684,7 +739,7 @@ GLvoid drawScene() {
     GLfloat noEmission[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 
     glMaterialfv(GL_FRONT, GL_EMISSION, sunEmission);
-    glColor3f(1.0f, 1.0f, 1.0f);  
+    glColor3f(1.0f, 1.0f, 1.0f);
 
     // 태양 축 기울기
     glRotatef(gSunAxialTilt, 0.0f, 0.0f, 1.0f); // 축 기울기
@@ -705,7 +760,7 @@ GLvoid drawScene() {
         glDisable(GL_TEXTURE_2D);
     }
 
-    // 자체발광이 다른 객체들에게 영향 안끼치게
+    // 자신발광이 다른 객체들에게 영향 안끼치게
     glMaterialfv(GL_FRONT, GL_EMISSION, noEmission);
     glPopMatrix();
 
@@ -716,7 +771,7 @@ GLvoid drawScene() {
 
         // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
-        
+
         glTranslatef(r, 0.0f, 0.0f);
 
 
@@ -730,7 +785,7 @@ GLvoid drawScene() {
         glColor3f(0.5f, 0.5f, 0.5f); // 회색 축선
         glBegin(GL_LINES);
         glVertex3f(0.0f, -axisLen, 0.0f);
-        glVertex3f(0.0f,  axisLen, 0.0f);
+        glVertex3f(0.0f, axisLen, 0.0f);
         glEnd();
         // 복원 색상
         glColor3f(1.0f, 1.0f, 1.0f);
@@ -747,10 +802,12 @@ GLvoid drawScene() {
             if (gPlanetTextures[i]) {
                 glEnable(GL_TEXTURE_2D);
                 glBindTexture(GL_TEXTURE_2D, gPlanetTextures[i]);
-            } else {
+            }
+            else {
                 glDisable(GL_TEXTURE_2D);
             }
-        } else {
+        }
+        else {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_LINE);
             glDisable(GL_TEXTURE_2D);
         }
