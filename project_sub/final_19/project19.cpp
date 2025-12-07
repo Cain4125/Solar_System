@@ -159,8 +159,9 @@ float gSunAxialTilt = 7.25f;           // 태양 축 기울기 (도)
 
 bool solid = true, angle = false, z_rotate = false;
 bool isGlobalAnimating = false;
-float scale = 1.0f, zangle = 1.0f;
-int currentAnimationType = 0;
+bool gPaused = false; // 추가: 't'로 장면 일시정지 토글
+float scale =1.0f, zangle =1.0f;
+int currentAnimationType =0;
 
 GLint width = 500, height = 500; // 18.cpp와 동일하게
 GLuint shaderProgramID;
@@ -975,6 +976,11 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
     std::cout << "키 입력 감지: '" << key << "' (ASCII: " << (int)key << ")" << std::endl;
 
     switch (key) {
+    case 't':
+    case 'T':
+    gPaused = !gPaused;
+    std::cout << "장면 " << (gPaused ? "일시정지" : "재개") << std::endl;
+    break;
     case 'p':
     case 'P':
         angle = !angle;
@@ -1062,39 +1068,40 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
 }
 
 void TimerFunction(int value) {
+    if (!gPaused) {
+        // 행성 공전 적용
+        for (int i = 0; i < PLANET_COUNT; i++) {
+            float speed = gRevolutionSpeed[i];
+            gPlanetMatrix[i] =
+                glm::rotate(glm::mat4(1.0f),
+                    glm::radians(speed),
+                    glm::vec3(0.0f, 1.0f, 0.0f)) * gPlanetMatrix[i];
+        }
 
-    // 행성 공전 적용
-    for (int i = 0; i < PLANET_COUNT; i++) {
-        float speed = gRevolutionSpeed[i];
-        gPlanetMatrix[i] =
-            glm::rotate(glm::mat4(1.0f),
-                glm::radians(speed),
-                glm::vec3(0.0f, 1.0f, 0.0f)) * gPlanetMatrix[i];
-    }
+        // 자전
+        for (int i = 0; i < PLANET_COUNT; i++) {
+            float selfSpeed = gSelfRotationSpeed[i];
+            gSelfAngle[i] += selfSpeed;
+            if (gSelfAngle[i] >= 360.0f || gSelfAngle[i] <= -360.0f)
+                gSelfAngle[i] = fmodf(gSelfAngle[i], 360.0f);
+        }
 
-    // 자전
-    for (int i = 0; i < PLANET_COUNT; i++) {
-        float selfSpeed = gSelfRotationSpeed[i];
-        gSelfAngle[i] += selfSpeed;
-        if (gSelfAngle[i] >= 360.0f || gSelfAngle[i] <= -360.0f)
-            gSelfAngle[i] = fmodf(gSelfAngle[i], 360.0f);
-    }
+        // 태양 자전
+        gSunAngle += gSunSelfSpeed;
+        if (gSunAngle >= 360.0f || gSunAngle <= -360.0f)
+            gSunAngle = fmodf(gSunAngle, 360.0f);
 
-    // 태양 자전
-    gSunAngle += gSunSelfSpeed;
-    if (gSunAngle >= 360.0f || gSunAngle <= -360.0f)
-        gSunAngle = fmodf(gSunAngle, 360.0f);
+        gMoonOrbitAngle += gMoonOrbitSpeed;
+        if (gMoonOrbitAngle >= 360.0f || gMoonOrbitAngle <= -360.0f)
+            gMoonOrbitAngle = fmodf(gMoonOrbitAngle, 360.0f);
 
-    gMoonOrbitAngle += gMoonOrbitSpeed;
-    if (gMoonOrbitAngle >= 360.0f || gMoonOrbitAngle <= -360.0f)
-        gMoonOrbitAngle = fmodf(gMoonOrbitAngle, 360.0f);
+        gMoonSelfAngle += gMoonSelfSpeed;
+        if (gMoonSelfAngle >= 360.0f || gMoonSelfAngle <= -360.0f)
+            gMoonSelfAngle = fmodf(gMoonSelfAngle, 360.0f);
+ }
 
-    gMoonSelfAngle += gMoonSelfSpeed;
-    if (gMoonSelfAngle >= 360.0f || gMoonSelfAngle <= -360.0f)
-        gMoonSelfAngle = fmodf(gMoonSelfAngle, 360.0f);
-
-    glutPostRedisplay();
-    glutTimerFunc(16, TimerFunction, 0);
+ glutPostRedisplay();
+ glutTimerFunc(16, TimerFunction,0);
 }
 
 void updateRevolutionSpeed() {
@@ -1151,5 +1158,6 @@ void menu() {
  std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
  std::cout << "e: 지구 시점" << std::endl;
  std::cout << "r: 장면 초기화 (태양을 중앙으로)" << std::endl;
+ std::cout << "t: 장면 일시정지/재개" << std::endl;
  std::cout << "q: 종료" << std::endl;
 }
