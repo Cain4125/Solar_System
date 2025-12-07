@@ -1005,6 +1005,13 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         movemat = glm::translate(movemat, glm::vec3(0.1f, 0.0f, 0.0f));
         std::cout << "오른쪽으로 이동" << std::endl;
         break;
+ case 'r':
+ case 'R':
+ movemat = glm::mat4(1.0f);
+ big_Matrix = glm::mat4(1.0f);
+ CreateMatrix();
+ std::cout << "장면 초기화: 태양을 중앙으로 복원" << std::endl;
+ break;
     case 'q':
     case 'Q':
         std::cout << "프로그램 종료" << std::endl;
@@ -1143,5 +1150,6 @@ void menu() {
  std::cout << "+/-: 카메라 줌인/줌아웃" << std::endl;
  std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
  std::cout << "e: 지구 시점" << std::endl;
+ std::cout << "r: 장면 초기화 (태양을 중앙으로)" << std::endl;
  std::cout << "q: 종료" << std::endl;
 }
