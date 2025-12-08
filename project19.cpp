@@ -773,6 +773,7 @@ GLvoid drawScene() {
         viewMat = glm::translate(glm::mat4(1.0f),
             glm::vec3(0.0f, 0.0f, gCameraZ));
     }
+    
 
     // 궤도 그리기
     for (int i = 0; i < PLANET_COUNT; i++) {
@@ -899,6 +900,7 @@ GLvoid drawScene() {
         glPushMatrix();
         glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);      // 자전축 기울기
         glRotatef(gSelfAngle[i], 0.0f, 1.0f, 0.0f);      // 기울어진 축 기준 회전
+        glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 
         //행성 렌더
         if (solid) {
