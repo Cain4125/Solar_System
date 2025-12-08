@@ -179,10 +179,16 @@ float  gMoonSelfSpeed = 0.0f;
 float  gMoonOrbitAngle = 0.0f;     
 float  gMoonSelfAngle = 0.0f;   
 
-// 지구 시점 토글 및 오프셋 (전역)
-bool gFollowEarth = false;                   // true면 지구 시점
-float gEarthCamOffsetY = 0.15f;              // 지구 위(상향) 오프셋
-float gEarthCamOffsetZ = 0.6f;               // 지구 뒤(카메라 거리)
+// 위성카메라
+int   gFollowPlanet = -1;         // 행성 선택
+float gEarthCamOffsetY = 0.15f;   // 위로 띄우는 높이
+float gEarthCamOffsetZ = 0.6f;    // 행성 중심에서 떨어진 거리
+
+// === 일식 전용 ===
+bool   gEclipseMode = false;   
+GLuint gEclipseProg = 0;      
+GLuint gEclipseVAO = 0;      
+GLuint gEclipseVBO = 0;
 
 // 함수 선언
 void make_vertexShaders();
@@ -202,6 +208,9 @@ GLvoid initBuffer(Shape& shape);
 void createAxis(Shape& shape);
 void initPlanets();
 void updateRevolutionSpeed();
+void make_eclipseProgram();
+void initEclipseQuad();
+void drawEclipseFullscreen();
 
 // --- 마우스 / 팝업 관련 함수 프로토타입 ---
 static glm::vec3 projectWorldToScreen(const glm::vec3& worldPos);
@@ -417,6 +426,10 @@ static glm::vec3 projectWorldToScreen(const glm::vec3& worldPos) {
 // --- 마우스 이동 콜백 ---
 void onMouseMove(int x, int y) {
  gMouseX = x; gMouseY = y;
+ if (gFollowPlanet >= 0) {
+     gHoveredPlanet = -1;  // 위성 카메라 작동시 무시
+     return;
+ }
  int picked = -1;
  int mouseYGL = height - y; // convert to OpenGL bottom-left origin
 
@@ -558,8 +571,7 @@ static GLuint LoadTextureWIC(const char* path) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (GLsizei)w, (GLsizei)h, 0, GL_BGRA, GL_UNSIGNED_BYTE, buf.data());
     glGenerateMipmap(GL_TEXTURE_2D);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //경계에서 특히 링 텍스처 반복되지 않도록 두 줄 추가
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -571,10 +583,57 @@ static GLuint LoadTextureWIC(const char* path) {
     return tex;
 }
 
+void make_eclipseProgram()
+{
+    char* vsSrc = filetobuf("vertex_eclipse.glsl");
+    char* fsSrc = filetobuf("fragment_eclipse.glsl");
+    if (!vsSrc || !fsSrc) {
+        std::cerr << "일식 셰이더 파일을 읽을 수 없습니다.\n";
+        return;
+    }
+
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &vsSrc, NULL);
+    glCompileShader(vs);
+    free(vsSrc);
+
+    GLint ok; GLchar logBuf[512];
+    glGetShaderiv(vs, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        glGetShaderInfoLog(vs, 512, NULL, logBuf);
+        std::cerr << "vertex_eclipse 컴파일 실패:\n" << logBuf << std::endl;
+    }
+
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &fsSrc, NULL);
+    glCompileShader(fs);
+    free(fsSrc);
+
+    glGetShaderiv(fs, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        glGetShaderInfoLog(fs, 512, NULL, logBuf);
+        std::cerr << "fragment_eclipse 컴파일 실패:\n" << logBuf << std::endl;
+    }
+
+    gEclipseProg = glCreateProgram();
+    glAttachShader(gEclipseProg, vs);
+    glAttachShader(gEclipseProg, fs);
+    glLinkProgram(gEclipseProg);
+
+    glDeleteShader(vs);
+    glDeleteShader(fs);
+
+    glGetProgramiv(gEclipseProg, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        glGetProgramInfoLog(gEclipseProg, 512, NULL, logBuf);
+        std::cerr << "일식 프로그램 링크 실패:\n" << logBuf << std::endl;
+        gEclipseProg = 0;
+    }
+}
+
 void make_shaderProgram() {
     make_vertexShaders();
     make_fragmentShaders();
-
     shaderProgramID = glCreateProgram();
     glAttachShader(shaderProgramID, vertexShader);
     glAttachShader(shaderProgramID, fragmentShader);
@@ -594,10 +653,55 @@ void make_shaderProgram() {
 
     glUseProgram(shaderProgramID);
     std::cout << "셰이더 프로그램 초기화 완료" << std::endl;
+     
+    make_eclipseProgram();
+    initEclipseQuad();
 }
+
+
+
+void initEclipseQuad()
+{
+    // pos(x,y), uv(u,v)
+    float verts[] = {
+        //  aPos      aUV
+        -1.0f, -1.0f, 0.0f, 0.0f,
+         1.0f, -1.0f, 1.0f, 0.0f,
+        -1.0f,  1.0f, 0.0f, 1.0f,
+         1.0f,  1.0f, 1.0f, 1.0f
+    };
+
+    glGenVertexArrays(1, &gEclipseVAO);
+    glGenBuffers(1, &gEclipseVBO);
+
+    glBindVertexArray(gEclipseVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, gEclipseVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+
+    // aPos (location 0)
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // aUV (location 1)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+        (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
+
 
 //--- 출력 콜백 함수 (18.cpp 스타일로 단순화)
 GLvoid drawScene() {
+    if (gEclipseMode && gEclipseProg != 0) { 
+        glClearColor(0.0f, 0.0f, 0.02f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        drawEclipseFullscreen();
+        glutSwapBuffers();
+        return;
+    }
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
@@ -621,49 +725,61 @@ GLvoid drawScene() {
 
     unsigned int modelLocation = glGetUniformLocation(shaderProgramID, "Matrix");
 
-    // 모델뷰(카메라) 계산 (use glm view matrix for shader and fixed-function)
+    // 모델뷰(카메라) 계산  
     glm::mat4 viewMat;
-    if (gFollowEarth) {
-        const int E = 2; // Earth index
-        float rEarth = gPlanets[E].orbitRadius;
 
-        // planetModel: full local->world for the planet (includes scene transforms)
-        glm::mat4 planetModel = movemat * big_Matrix * gPlanetMatrix[E];
-        // translate to planet position along its orbit
-        planetModel = planetModel * glm::translate(glm::mat4(1.0f), glm::vec3(rEarth, 0.0f, 0.0f));
-        // apply axial tilt (rotate around local Z as in rendering code)
-        planetModel = planetModel * glm::rotate(glm::mat4(1.0f), glm::radians(gPlanets[E].axialTilt), glm::vec3(0.0f, 0.0f, 1.0f));
-        // apply self rotation (around local Y)
-        planetModel = planetModel * glm::rotate(glm::mat4(1.0f), glm::radians(gSelfAngle[E]), glm::vec3(0.0f, 1.0f, 0.0f));
+    if (gFollowPlanet >= 0) {
+        int P = gFollowPlanet;
+        if (P < 0 || P >= PLANET_COUNT) P = 2; 
 
-        // Eye: a point on the planet surface in local +X direction (same as surface used to render)
-        glm::vec3 localSurfacePos(planetSpheres[E].size, 0.0f, 0.0f);
-        glm::vec3 eyeWorld = glm::vec3(planetModel * glm::vec4(localSurfacePos, 1.0f));
+        float rP = gPlanets[P].orbitRadius;
 
-        // Compute outward direction in world space using local +X (direction away from planet center)
-        glm::vec3 localOut(1.0f, 0.0f, 0.0f);
-        glm::vec3 outward = glm::normalize(glm::vec3(planetModel * glm::vec4(localOut, 0.0f)));
-        if (glm::length(outward) < 1e-6f) outward = glm::vec3(0.0f, 0.0f, 1.0f);
+        // 행성 중심 월드 좌표 (공전 + 전체 변환)
+        glm::mat4 planetBase = movemat * big_Matrix * gPlanetMatrix[P];
+        glm::vec3 planetCenterWorld =
+            glm::vec3(planetBase * glm::vec4(rP, 0.0f, 0.0f, 1.0f));
 
-        // Look target: a point far in the outward direction from the surface point (so camera looks out to space)
-        const float lookDist = 20.0f;
-        glm::vec3 center = eyeWorld + outward * lookDist;
+        // 태양 월드 좌표
+        glm::vec3 sunWorld =
+            glm::vec3(movemat * big_Matrix * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 
-        // Up vector: transform local +Y by planet orientation (no translation)
-        glm::vec3 upWorld = glm::normalize(glm::vec3(planetModel * glm::vec4(0.0f, 1.0f, 0.0f, 0.0f)));
-        if (glm::length(upWorld) < 1e-6f) upWorld = glm::vec3(0.0f, 1.0f, 0.0f);
+        // 행성 → 태양 방향
+        glm::vec3 PS = sunWorld - planetCenterWorld;
+        glm::vec2 PSxz(PS.x, PS.z);
 
-        // Build view matrix (camera fixed to rotating Earth surface, looking outward)
-        viewMat = glm::lookAt(eyeWorld, center, upWorld);
+        float camYawRad = 0.0f;
+        if (glm::length(PSxz) >= 1e-6f) { 
+            float sunAngle = std::atan2(PSxz.y, PSxz.x); 
+            camYawRad = sunAngle - glm::radians(90.0f);
+        }
+
+        float camRadius = gEarthCamOffsetZ;
+        float cosT = std::cos(camYawRad);
+        float sinT = std::sin(camYawRad);
+
+        // 위성 궤도상의 카메라 위치
+        glm::vec3 camOffset(
+            camRadius * cosT,
+            gEarthCamOffsetY,
+            camRadius * sinT
+        );
+
+        glm::vec3 eyeWorld = planetCenterWorld + camOffset; // 카메라 위치
+        glm::vec3 centerWorld = planetCenterWorld;             // 항상 행성 중심을 봄
+        glm::vec3 upWorld(0.0f, 1.0f, 0.0f);                  
+
+        viewMat = glm::lookAt(eyeWorld, centerWorld, upWorld);
     }
-    else {
-        // global camera: only translate in Z here; baseRotation applied separately
-        viewMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, gCameraZ));
+    else { 
+        // 글로벌 카메라
+        viewMat = glm::translate(glm::mat4(1.0f),
+            glm::vec3(0.0f, 0.0f, gCameraZ));
     }
+    
 
     // 축 그리기 (18.cpp와 동일)
     glm::mat4 axisMatrix;
-    if (gFollowEarth)
+    if (gFollowPlanet >= 0)
         axisMatrix = projection * viewMat;
     else
         axisMatrix = projection * viewMat * baseRotation;
@@ -674,7 +790,7 @@ GLvoid drawScene() {
     // 궤도 그리기
     for (int i = 0; i < PLANET_COUNT; i++) {
         glm::mat4 orbitMatrix;
-        if (gFollowEarth)
+        if (gFollowPlanet >= 0)
             orbitMatrix = projection * viewMat;
         else
             orbitMatrix = projection * viewMat * baseRotation;
@@ -699,7 +815,7 @@ GLvoid drawScene() {
     // 모델뷰(Fixed-function) 설정: apply same view as used by shader
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    if (gFollowEarth) {
+    if (gFollowPlanet >= 0) {
         // load view matrix computed by glm (convert to column-major)
         glLoadMatrixf(glm::value_ptr(viewMat));
     }
@@ -902,44 +1018,52 @@ GLvoid drawScene() {
 
         glPopMatrix();
     }
+     
+    // 행성정보 팝업
+    int popupIdx = -1;
 
-    // --- Popup overlay: show texture at top-right when hovering ---
-    if (gHoveredPlanet >= 0) {
-        int idx = gHoveredPlanet;
+    // 위성 카메라 모드일 때: 따라가는 행성의 팝업을 항상 표시
+    if (gFollowPlanet >= 0) {
+        popupIdx = gFollowPlanet;       
+    }
+    // 글로벌 모드일 때: 마우스 hover 결과 사용
+    else if (gHoveredPlanet >= 0) {
+        popupIdx = gHoveredPlanet;     
+    }
+
+    if (popupIdx >= 0) {
+        int idx = popupIdx;
         if (idx >= 0 && idx <= PLANET_COUNT && gPopupTextures[idx]) {
-            // exact1/2 size, flush to top-right
+            int width = glutGet(GLUT_WINDOW_WIDTH);
+            int height = glutGet(GLUT_WINDOW_HEIGHT);
+
             int boxW = width / 2;
             int boxH = height / 2;
-            if (boxW > width) boxW = width;
-            if (boxH > height) boxH = height;
+            int px = width - boxW - 10;
+            int py = height - boxH - 10;
 
-            int px = width - boxW; // flush right
-            int py = height - boxH; // flush top
-
-            // setup ortho
             glMatrixMode(GL_PROJECTION);
             glPushMatrix();
             glLoadIdentity();
             glOrtho(0, width, 0, height, -1, 1);
+
             glMatrixMode(GL_MODELVIEW);
             glPushMatrix();
             glLoadIdentity();
 
-            // save and disable states so overlay not affected by scene lighting/depth
-            GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
-            if (depthWasEnabled) glDisable(GL_DEPTH_TEST);
-            GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
-            if (lightingWasEnabled) glDisable(GL_LIGHTING);
+            GLboolean lightingWasOn = glIsEnabled(GL_LIGHTING);
+            GLboolean depthTestWasOn = glIsEnabled(GL_DEPTH_TEST);
+            GLboolean textureWasOn = glIsEnabled(GL_TEXTURE_2D);
 
+            glDisable(GL_LIGHTING);
+            glDisable(GL_DEPTH_TEST);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, gPopupTextures[idx]);
 
-            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
             glBegin(GL_TRIANGLE_STRIP);
-            // Flip V coordinate because WIC textures are top-left origin
             glTexCoord2f(0.0f, 1.0f); glVertex2i(px, py);
             glTexCoord2f(1.0f, 1.0f); glVertex2i(px + boxW, py);
             glTexCoord2f(0.0f, 0.0f); glVertex2i(px, py + boxH);
@@ -947,13 +1071,20 @@ GLvoid drawScene() {
             glEnd();
 
             glBindTexture(GL_TEXTURE_2D, 0);
-            glDisable(GL_TEXTURE_2D);
-
+            if (!textureWasOn) { 
+                glDisable(GL_TEXTURE_2D);
+            } 
+             
+            if (depthTestWasOn) {  
+                glEnable(GL_DEPTH_TEST);
+            }
+            else {}
+             
+            if (lightingWasOn) {
+                glEnable(GL_LIGHTING);
+            }
+            else {}
             glDisable(GL_BLEND);
-
-            // restore lighting and depth test
-            if (lightingWasEnabled) glEnable(GL_LIGHTING);
-            if (depthWasEnabled) glEnable(GL_DEPTH_TEST);
 
             glPopMatrix();
             glMatrixMode(GL_PROJECTION);
@@ -962,8 +1093,55 @@ GLvoid drawScene() {
         }
     }
 
+
     glutSwapBuffers();
 }
+
+void drawEclipseFullscreen()
+{
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+    glUseProgram(gEclipseProg);
+     
+    GLint locRes = glGetUniformLocation(gEclipseProg, "uResolution");
+    if (locRes >= 0) {
+        glUniform2f(locRes, (float)width, (float)height);
+    }
+     
+    float phase = fmodf(gMoonOrbitAngle, 360.0f) / 360.0f; 
+ 
+    float moonOffset = (0.5f - phase) * 2.0f;  
+     
+    const float sunR = 0.35f;
+    const float moonR = 0.33f;
+    const float centerScale = 0.8f;         
+    float d = fabsf(moonOffset) * centerScale; 
+    float sumR = sunR + moonR;
+
+    float occlusion = 0.0f; 
+    if (d < sumR) {
+        float t = (sumR - d) / sumR; 
+        occlusion = t * t;
+        if (occlusion > 1.0f) occlusion = 1.0f;
+    }
+     
+    GLint locOff = glGetUniformLocation(gEclipseProg, "uMoonOffset");
+    if (locOff >= 0) glUniform1f(locOff, moonOffset);
+
+    GLint locOcc = glGetUniformLocation(gEclipseProg, "uOcclusion");
+    if (locOcc >= 0) glUniform1f(locOcc, occlusion);
+
+    glBindVertexArray(gEclipseVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+
+    glUseProgram(0);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+}
+
+
+
 
 GLvoid Reshape(int w, int h) {
     glViewport(0, 0, w, h);
@@ -1054,10 +1232,41 @@ GLvoid Keyboard(unsigned char key, int x, int y) {
         std::cout << "ESC 키로 프로그램 종료" << std::endl;
         exit(0);
         break;
-    case 'e':
-    case 'E':
-        gFollowEarth = !gFollowEarth;
-        std::cout << "지구 시점 " << (gFollowEarth ? "활성화" : "비활성화") << std::endl;
+    case '0':  // 일식 모드  
+        gEclipseMode = !gEclipseMode;
+        std::cout << "일식 모드: " << (gEclipseMode ? "ON" : "OFF") << std::endl;
+        break;
+    case '1': // 수성
+        gFollowPlanet = (gFollowPlanet == 0 ? -1 : 0);
+        std::cout << "수성 시점 " << (gFollowPlanet == 0 ? "활성화" : "해제") << std::endl;
+        break;
+    case '2': // 금성
+        gFollowPlanet = (gFollowPlanet == 1 ? -1 : 1);
+        std::cout << "금성 시점 " << (gFollowPlanet == 1 ? "활성화" : "해제") << std::endl;
+        break;
+    case '3': // 지구
+        gFollowPlanet = (gFollowPlanet == 2 ? -1 : 2);
+        std::cout << "지구 시점 " << (gFollowPlanet == 2 ? "활성화" : "해제") << std::endl;
+        break;
+    case '4': // 화성
+        gFollowPlanet = (gFollowPlanet == 3 ? -1 : 3);
+        std::cout << "화성 시점 " << (gFollowPlanet == 3 ? "활성화" : "해제") << std::endl;
+        break;
+    case '5': // 목성
+        gFollowPlanet = (gFollowPlanet == 4 ? -1 : 4);
+        std::cout << "목성 시점 " << (gFollowPlanet == 4 ? "활성화" : "해제") << std::endl;
+        break;
+    case '6': // 토성
+        gFollowPlanet = (gFollowPlanet == 5 ? -1 : 5);
+        std::cout << "토성 시점 " << (gFollowPlanet == 5 ? "활성화" : "해제") << std::endl;
+        break;
+    case '7': // 천왕성
+        gFollowPlanet = (gFollowPlanet == 6 ? -1 : 6);
+        std::cout << "천왕성 시점 " << (gFollowPlanet == 6 ? "활성화" : "해제") << std::endl;
+        break;
+    case '8': // 해왕성
+        gFollowPlanet = (gFollowPlanet == 7 ? -1 : 7);
+        std::cout << "해왕성 시점 " << (gFollowPlanet == 7 ? "활성화" : "해제") << std::endl;
         break;
     default:
         std::cout << "알 수 없는 키 입력" << std::endl;
@@ -1156,7 +1365,8 @@ void menu() {
  std::cout << "w/a/s/d: 상하좌우 이동" << std::endl;
  std::cout << "+/-: 카메라 줌인/줌아웃" << std::endl;
  std::cout << "[ / ]: 전체 시간 배속 감소/증가" << std::endl;
- std::cout << "e: 지구 시점" << std::endl;
+ std::cout << "0: 일식 모드 토글 (사진 스타일 일식 화면)" << std::endl;
+ std::cout << "1~8: 수성~해왕성 시점 토글" << std::endl;
  std::cout << "r: 장면 초기화 (태양을 중앙으로)" << std::endl;
  std::cout << "t: 장면 일시정지/재개" << std::endl;
  std::cout << "q: 종료" << std::endl;
