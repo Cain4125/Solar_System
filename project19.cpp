@@ -872,37 +872,29 @@ GLvoid drawScene() {
     // 행성들
     for (int i = 0; i < PLANET_COUNT; i++) {
         float r = gPlanets[i].orbitRadius;
+
         glPushMatrix();
-
-        // 공전 행렬 적용
         glMultMatrixf(glm::value_ptr(gPlanetMatrix[i]));
-
         glTranslatef(r, 0.0f, 0.0f);
 
-
-
-        // 축선 그리기 
         glPushMatrix();
-        glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f); // Z축 회전으로 Y축(자전축)을 기울임
+        glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);
         float axisLen = planetSpheres[i].size * 1.5f;
         glDisable(GL_TEXTURE_2D);
         glLineWidth(2.0f);
-        glColor3f(0.5f, 0.5f, 0.5f); // 회색 축선
+        glColor3f(0.5f, 0.5f, 0.5f);
         glBegin(GL_LINES);
         glVertex3f(0.0f, -axisLen, 0.0f);
         glVertex3f(0.0f, axisLen, 0.0f);
         glEnd();
-        // 복원 색상
         glColor3f(1.0f, 1.0f, 1.0f);
         glPopMatrix();
 
-        //자전 적용
         glPushMatrix();
-        glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);      // 자전축 기울기
-        glRotatef(gSelfAngle[i], 0.0f, 1.0f, 0.0f);      // 기울어진 축 기준 회전
+        glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);
+        glRotatef(gSelfAngle[i], 0.0f, 1.0f, 0.0f);
         glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 
-        //행성 렌더
         if (solid) {
             if (planetSpheres[i].obj) gluQuadricDrawStyle(planetSpheres[i].obj, GLU_FILL);
             if (gPlanetTextures[i]) {
@@ -921,21 +913,22 @@ GLvoid drawScene() {
         if (planetSpheres[i].obj)
             gluSphere(planetSpheres[i].obj, planetSpheres[i].size, 32, 32);
 
-        // 행성 텍스처 정리
         if (solid && gPlanetTextures[i]) {
             glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
         }
-        // 달
-        if (i == 2 && moonSphere.obj) {  // Earth 인덱스 = 2
+
+        glPopMatrix();
+
+        if (i == 2 && moonSphere.obj) {
             glPushMatrix();
 
-            // 지구 기준 공전
             glRotatef(gMoonOrbitAngle, 0.0f, 1.0f, 0.0f);
             glTranslatef(gMoonOrbitRadius, 0.0f, 0.0f);
 
-            // 자전
             glRotatef(gMoonSelfAngle, 0.0f, 1.0f, 0.0f);
+
+            glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 
             if (solid) {
                 gluQuadricDrawStyle(moonSphere.obj, GLU_FILL);
@@ -958,33 +951,22 @@ GLvoid drawScene() {
                 glBindTexture(GL_TEXTURE_2D, 0);
                 glDisable(GL_TEXTURE_2D);
             }
-
             glPopMatrix();
         }
 
-        glPopMatrix();
-
-        // --- 토성 링 그리는 if문 ---
         if (i == 5 && gSaturnRingTexture) {
-            // 링 크기: inner/outer 배율로 조정
-            float inner = planetSpheres[i].size * 1.2f;
-            float outer = planetSpheres[i].size * 1.5f;
-            const int segs = 96;
-
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-            glDepthMask(GL_FALSE);
-
             glPushMatrix();
             glRotatef(gPlanets[i].axialTilt, 0.0f, 0.0f, 1.0f);
 
+            float inner = planetSpheres[i].size * 1.2f;
+            float outer = planetSpheres[i].size * 1.5f;
+            const int segs = 96;
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask(GL_FALSE);
             glEnable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, gSaturnRingTexture);
-
-            // 아주 작은 높이 (planet 중심에서 약간 위)
             const float yOffset = 0.002f;
-
             glBegin(GL_TRIANGLE_STRIP);
             for (int s = 0; s <= segs; ++s) {
                 float a = 2.0f * M_PI * s / segs;
@@ -995,14 +977,12 @@ GLvoid drawScene() {
                 glVertex3f(cosA * inner, yOffset, sinA * inner);
             }
             glEnd();
-
             glBindTexture(GL_TEXTURE_2D, 0);
             glDisable(GL_TEXTURE_2D);
-            glPopMatrix();
-
-            // 복원
             glDepthMask(GL_TRUE);
             glDisable(GL_BLEND);
+
+            glPopMatrix();
         }
 
         glPopMatrix();
